@@ -208,7 +208,6 @@ VIR_ENUM_IMPL(virDomainChrConsoleTarget,
               "virtio")
 
 VIR_ENUM_IMPL(virDomainChrDevice, VIR_DOMAIN_CHR_DEVICE_TYPE_LAST,
-              "monitor",
               "parallel",
               "serial",
               "console",
@@ -2861,10 +2860,6 @@ virDomainChrDefParseTargetXML(virCapsPtr caps,
             def->target.name = virXMLPropString(cur, "name");
             break;
         }
-        break;
-
-    case VIR_DOMAIN_CHR_DEVICE_TYPE_MONITOR:
-        /* Nothing to parse */
         break;
 
     default:
@@ -6718,10 +6713,6 @@ virDomainChrDefFormat(virBufferPtr buf,
         virBufferAddLit(buf, "/>\n");
         break;
     }
-
-    case VIR_DOMAIN_CHR_DEVICE_TYPE_MONITOR:
-        /* Nothing to format */
-        break;
 
     case VIR_DOMAIN_CHR_DEVICE_TYPE_CONSOLE:
         virBufferVSprintf(buf,

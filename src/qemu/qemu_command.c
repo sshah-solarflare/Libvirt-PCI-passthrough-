@@ -2552,7 +2552,7 @@ virCommandPtr
 qemuBuildCommandLine(virConnectPtr conn,
                      struct qemud_driver *driver,
                      virDomainDefPtr def,
-                     virDomainChrDefPtr monitor_chr,
+                     virDomainChrSourceDefPtr monitor_chr,
                      bool monitor_json,
                      unsigned long long qemuCmdFlags,
                      const char *migrateFrom,
@@ -2814,8 +2814,7 @@ qemuBuildCommandLine(virConnectPtr conn,
         if (qemuCmdFlags & QEMUD_CMD_FLAG_CHARDEV) {
 
             virCommandAddArg(cmd, "-chardev");
-            if (!(chrdev = qemuBuildChrChardevStr(&monitor_chr->source,
-                                                  monitor_chr->info.alias)))
+            if (!(chrdev = qemuBuildChrChardevStr(monitor_chr, "monitor")))
                 goto error;
             virCommandAddArg(cmd, chrdev);
             VIR_FREE(chrdev);
@@ -2829,7 +2828,7 @@ qemuBuildCommandLine(virConnectPtr conn,
                 prefix = "control,";
 
             virCommandAddArg(cmd, "-monitor");
-            if (!(chrdev = qemuBuildChrArgStr(&monitor_chr->source, prefix)))
+            if (!(chrdev = qemuBuildChrArgStr(monitor_chr, prefix)))
                 goto error;
             virCommandAddArg(cmd, chrdev);
             VIR_FREE(chrdev);

@@ -177,7 +177,7 @@ int qemuDomainAttachPciDiskDevice(struct qemud_driver *driver,
         if (!(drivestr = qemuBuildDriveStr(disk, 0, qemuCmdFlags)))
             goto error;
 
-        if (!(devstr = qemuBuildDriveDevStr(disk)))
+        if (!(devstr = qemuBuildDriveDevStr(disk, qemuCmdFlags)))
             goto error;
     }
 
@@ -392,7 +392,7 @@ int qemuDomainAttachSCSIDisk(struct qemud_driver *driver,
     if (qemuCmdFlags & QEMUD_CMD_FLAG_DEVICE) {
         if (qemuAssignDeviceDiskAlias(disk, qemuCmdFlags) < 0)
             goto error;
-        if (!(devstr = qemuBuildDriveDevStr(disk)))
+        if (!(devstr = qemuBuildDriveDevStr(disk, qemuCmdFlags)))
             goto error;
     }
 
@@ -509,7 +509,7 @@ int qemuDomainAttachUsbMassstorageDevice(struct qemud_driver *driver,
             goto error;
         if (!(drivestr = qemuBuildDriveStr(disk, 0, qemuCmdFlags)))
             goto error;
-        if (!(devstr = qemuBuildDriveDevStr(disk)))
+        if (!(devstr = qemuBuildDriveDevStr(disk, qemuCmdFlags)))
             goto error;
     }
 
@@ -693,7 +693,7 @@ int qemuDomainAttachNetDevice(virConnectPtr conn,
     }
 
     if (qemuCmdFlags & QEMUD_CMD_FLAG_DEVICE) {
-        if (!(nicstr = qemuBuildNicDevStr(net, vlan)))
+        if (!(nicstr = qemuBuildNicDevStr(net, vlan, qemuCmdFlags)))
             goto try_remove;
     } else {
         if (!(nicstr = qemuBuildNicStr(net, NULL, vlan)))

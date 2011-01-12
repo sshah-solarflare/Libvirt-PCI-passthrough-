@@ -2281,6 +2281,7 @@ err_exit:
 static virDomainNetDefPtr
 virDomainNetDefParseXML(virCapsPtr caps,
                         xmlNodePtr node,
+                        xmlXPathContextPtr ctxt,
                         int flags ATTRIBUTE_UNUSED) {
     virDomainNetDefPtr def;
     xmlNodePtr cur;
@@ -2302,11 +2303,15 @@ virDomainNetDefParseXML(virCapsPtr caps,
     virNWFilterHashTablePtr filterparams = NULL;
     virVirtualPortProfileParams virtPort;
     bool virtPortParsed = false;
+    xmlNodePtr oldnode = ctxt->node;
+    int ret;
 
     if (VIR_ALLOC(def) < 0) {
         virReportOOMError();
         return NULL;
     }
+
+    ctxt->node = node;
 
     type = virXMLPropString(node, "type");
     if (type != NULL) {
@@ -2595,7 +2600,17 @@ virDomainNetDefParseXML(virCapsPtr caps,
         }
     }
 
+    ret = virXPathULong("string(./tune/sndbuf)", ctxt, &def->tune.sndbuf);
+    if (ret >= 0) {
+        def->tune.sndbuf_specified = true;
+    } else if (ret == -2) {
+        virDomainReportError(VIR_ERR_XML_ERROR, "%s",
+                             _("sndbuf must be a positive integer"));
+        goto error;
+    }
+
 cleanup:
+    ctxt->node = oldnode;
     VIR_FREE(macaddr);
     VIR_FREE(network);
     VIR_FREE(address);
@@ -4301,6 +4316,7 @@ virDomainDeviceDefPtr virDomainDeviceDefParse(virCapsPtr caps,
 {
     xmlDocPtr xml;
     xmlNodePtr node;
+    xmlXPathContextPtr ctxt = NULL;
     virDomainDeviceDefPtr dev = NULL;
 
     if (!(xml = xmlReadDoc(BAD_CAST xmlStr, "device.xml", NULL,
@@ -4317,6 +4333,13 @@ virDomainDeviceDefPtr virDomainDeviceDefParse(virCapsPtr caps,
         goto error;
     }
 
+    ctxt = xmlXPathNewContext(xml);
+    if (ctxt == NULL) {
+        virReportOOMError();
+        goto error;
+    }
+    ctxt->node = node;
+
     if (VIR_ALLOC(dev) < 0) {
         virReportOOMError();
         goto error;
@@ -4332,7 +4355,7 @@ virDomainDeviceDefPtr virDomainDeviceDefParse(virCapsPtr caps,
             goto error;
     } else if (xmlStrEqual(node->name, BAD_CAST "interface")) {
         dev->type = VIR_DOMAIN_DEVICE_NET;
-        if (!(dev->data.net = virDomainNetDefParseXML(caps, node, flags)))
+        if (!(dev->data.net = virDomainNetDefParseXML(caps, node, ctxt, flags)))
             goto error;
     } else if (xmlStrEqual(node->name, BAD_CAST "input")) {
         dev->type = VIR_DOMAIN_DEVICE_INPUT;
@@ -4370,11 +4393,12 @@ virDomainDeviceDefPtr virDomainDeviceDefParse(virCapsPtr caps,
     }
 
     xmlFreeDoc(xml);
-
+    xmlXPathFreeContext(ctxt);
     return dev;
 
   error:
     xmlFreeDoc(xml);
+    xmlXPathFreeContext(ctxt);
     VIR_FREE(dev);
     return NULL;
 }
@@ -5045,6 +5069,7 @@ static virDomainDefPtr virDomainDefParseXML(virCapsPtr caps,
     for (i = 0 ; i < n ; i++) {
         virDomainNetDefPtr net = virDomainNetDefParseXML(caps,
                                                          nodes[i],
+                                                         ctxt,
                                                          flags);
         if (!net)
             goto error;
@@ -6311,6 +6336,12 @@ virDomainNetDefFormat(virBufferPtr buf,
         else
             virBufferVSprintf(buf, ">\n%s      </filterref>\n", attrs);
         VIR_FREE(attrs);
+    }
+
+    if (def->tune.sndbuf_specified) {
+        virBufferAddLit(buf,   "      <tune>\n");
+        virBufferVSprintf(buf, "        <sndbuf>%lu</sndbuf>\n", def->tune.sndbuf);
+        virBufferAddLit(buf,   "      </tune>\n");
     }
 
     if (virDomainDeviceInfoFormat(buf, &def->info, flags) < 0)

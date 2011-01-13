@@ -7519,7 +7519,7 @@ static int qemuDomainGetMemoryParameters(virDomainPtr dom,
     int i;
     virCgroupPtr group = NULL;
     virDomainObjPtr vm = NULL;
-    unsigned long val;
+    unsigned long long val;
     int ret = -1;
     int rc;
 

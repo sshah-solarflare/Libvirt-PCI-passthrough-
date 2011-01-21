@@ -914,7 +914,6 @@ virAuditSend;
 # virterror_internal.h
 virDispatchError;
 virErrorMsg;
-virErrorSetLogPriority;
 virRaiseErrorFull;
 virReportErrorHelper;
 virReportOOMErrorFull;

@@ -1508,6 +1508,9 @@ qemuBuildControllerDevStr(virDomainControllerDefPtr def)
     /* We always get an IDE controller, whether we want it or not. */
     case VIR_DOMAIN_CONTROLLER_TYPE_IDE:
     default:
+        qemuReportError(VIR_ERR_CONFIG_UNSUPPORTED,
+                        _("Unknown controller type: %s"),
+                        virDomainControllerTypeToString(def->type));
         goto error;
     }
 

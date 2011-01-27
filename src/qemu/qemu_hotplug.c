@@ -270,7 +270,6 @@ int qemuDomainAttachPciControllerDevice(struct qemud_driver *driver,
             goto cleanup;
 
         if (!(devstr = qemuBuildControllerDevStr(controller))) {
-            virReportOOMError();
             goto cleanup;
         }
     }

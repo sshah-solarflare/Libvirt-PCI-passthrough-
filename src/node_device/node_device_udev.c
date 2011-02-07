@@ -41,6 +41,10 @@
 
 #define VIR_FROM_THIS VIR_FROM_NODEDEV
 
+#ifndef TYPE_RAID
+# define TYPE_RAID 12
+#endif
+
 struct _udevPrivate {
     struct udev_monitor *udev_monitor;
     int watch;
@@ -704,7 +708,8 @@ out:
 }
 
 
-static int udevGetSCSIType(unsigned int type, char **typestring)
+static int udevGetSCSIType(virNodeDeviceDefPtr def,
+                           unsigned int type, char **typestring)
 {
     int ret = 0;
     int foundtype = 1;
@@ -739,6 +744,9 @@ static int udevGetSCSIType(unsigned int type, char **typestring)
     case TYPE_ENCLOSURE:
         *typestring = strdup("enclosure");
         break;
+    case TYPE_RAID:
+        *typestring = strdup("raid");
+        break;
     case TYPE_NO_LUN:
     default:
         foundtype = 0;
@@ -750,7 +758,8 @@ static int udevGetSCSIType(unsigned int type, char **typestring)
             ret = -1;
             virReportOOMError();
         } else {
-            VIR_ERROR(_("Failed to find SCSI device type %d"), type);
+            VIR_DEBUG("Failed to find SCSI device type %d for %s",
+                      type, def->sysfs_path);
         }
     }
 
@@ -795,7 +804,7 @@ static int udevProcessSCSIDevice(struct udev_device *device ATTRIBUTE_UNUSED,
 
     switch (udevGetUintSysfsAttr(device, "type", &tmp, 0)) {
     case PROPERTY_FOUND:
-        if (udevGetSCSIType(tmp, &data->scsi.type) == -1) {
+        if (udevGetSCSIType(def, tmp, &data->scsi.type) == -1) {
             goto out;
         }
         break;

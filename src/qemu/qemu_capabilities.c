@@ -171,13 +171,15 @@ qemuCapsProbeMachineTypes(const char *binary,
     char *output;
     int ret = -1;
     virCommandPtr cmd;
+    int status;
 
     cmd = virCommandNewArgList(binary, "-M", "?", NULL);
     virCommandAddEnvPassCommon(cmd);
     virCommandSetOutputBuffer(cmd, &output);
     virCommandClearCaps(cmd);
 
-    if (virCommandRun(cmd, NULL) < 0)
+    /* Ignore failure from older qemu that did not understand '-M ?'.  */
+    if (virCommandRun(cmd, &status) < 0)
         goto cleanup;
 
     if (qemuCapsParseMachineTypesStr(output, machines, nmachines) < 0)

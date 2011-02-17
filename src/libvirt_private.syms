@@ -863,6 +863,7 @@ virGetUserID;
 virGetUserName;
 virHexToBin;
 virIndexToDiskName;
+virIsDevMapperDevice;
 virKillProcess;
 virMacAddrCompare;
 virParseMacAddr;

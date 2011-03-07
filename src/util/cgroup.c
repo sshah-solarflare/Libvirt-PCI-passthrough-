@@ -253,10 +253,10 @@ static int virCgroupDetect(virCgroupPtr group)
 #endif
 
 
-static int virCgroupPathOfController(virCgroupPtr group,
-                                     int controller,
-                                     const char *key,
-                                     char **path)
+int virCgroupPathOfController(virCgroupPtr group,
+                              int controller,
+                              const char *key,
+                              char **path)
 {
     if (group->controllers[controller].mountPoint == NULL)
         return -ENOENT;

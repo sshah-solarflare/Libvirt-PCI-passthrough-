@@ -75,6 +75,7 @@ virCgroupGetMemorySoftLimit;
 virCgroupGetMemoryUsage;
 virCgroupGetSwapHardLimit;
 virCgroupMounted;
+virCgroupPathOfController;
 virCgroupRemove;
 virCgroupSetBlkioWeight;
 virCgroupSetCpuShares;

@@ -345,7 +345,7 @@ static struct pollfd *virEventMakePollFDs(int *nfds) {
 
     *nfds = 0;
     for (i = 0 ; i < eventLoop.handlesCount ; i++) {
-        if (eventLoop.handles[i].events)
+        if (eventLoop.handles[i].events && !eventLoop.handles[i].deleted)
             (*nfds)++;
     }
 
@@ -355,11 +355,12 @@ static struct pollfd *virEventMakePollFDs(int *nfds) {
 
     *nfds = 0;
     for (i = 0 ; i < eventLoop.handlesCount ; i++) {
-        EVENT_DEBUG("Prepare n=%d w=%d, f=%d e=%d", i,
+        EVENT_DEBUG("Prepare n=%d w=%d, f=%d e=%d d=%d", i,
                     eventLoop.handles[i].watch,
                     eventLoop.handles[i].fd,
-                    eventLoop.handles[i].events);
-        if (!eventLoop.handles[i].events)
+                    eventLoop.handles[i].events,
+                    eventLoop.handles[i].deleted);
+        if (!eventLoop.handles[i].events || eventLoop.handles[i].deleted)
             continue;
         fds[*nfds].fd = eventLoop.handles[i].fd;
         fds[*nfds].events = eventLoop.handles[i].events;
@@ -493,8 +494,13 @@ static int virEventCleanupTimeouts(void) {
 
         EVENT_DEBUG("Purging timeout %d with id %d", i,
                     eventLoop.timeouts[i].timer);
-        if (eventLoop.timeouts[i].ff)
-            (eventLoop.timeouts[i].ff)(eventLoop.timeouts[i].opaque);
+        if (eventLoop.timeouts[i].ff) {
+            virFreeCallback ff = eventLoop.timeouts[i].ff;
+            void *opaque = eventLoop.timeouts[i].opaque;
+            virMutexUnlock(&eventLoop.lock);
+            ff(opaque);
+            virMutexLock(&eventLoop.lock);
+        }
 
         if ((i+1) < eventLoop.timeoutsCount) {
             memmove(eventLoop.timeouts+i,
@@ -534,8 +540,13 @@ static int virEventCleanupHandles(void) {
             continue;
         }
 
-        if (eventLoop.handles[i].ff)
-            (eventLoop.handles[i].ff)(eventLoop.handles[i].opaque);
+        if (eventLoop.handles[i].ff) {
+            virFreeCallback ff = eventLoop.handles[i].ff;
+            void *opaque = eventLoop.handles[i].opaque;
+            virMutexUnlock(&eventLoop.lock);
+            ff(opaque);
+            virMutexLock(&eventLoop.lock);
+        }
 
         if ((i+1) < eventLoop.handlesCount) {
             memmove(eventLoop.handles+i,

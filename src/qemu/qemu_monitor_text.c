@@ -2525,13 +2525,15 @@ cleanup:
 
 int qemuMonitorTextCreateSnapshot(qemuMonitorPtr mon, const char *name)
 {
-    char *cmd;
+    char *cmd = NULL;
     char *reply = NULL;
     int ret = -1;
+    char *safename;
 
-    if (virAsprintf(&cmd, "savevm \"%s\"", name) < 0) {
+    if (!(safename = qemuMonitorEscapeArg(name)) ||
+        virAsprintf(&cmd, "savevm \"%s\"", safename) < 0) {
         virReportOOMError();
-        return -1;
+        goto cleanup;
     }
 
     if (qemuMonitorHMPCommand(mon, cmd, &reply)) {
@@ -2563,6 +2565,7 @@ int qemuMonitorTextCreateSnapshot(qemuMonitorPtr mon, const char *name)
     ret = 0;
 
 cleanup:
+    VIR_FREE(safename);
     VIR_FREE(cmd);
     VIR_FREE(reply);
     return ret;
@@ -2570,13 +2573,15 @@ cleanup:
 
 int qemuMonitorTextLoadSnapshot(qemuMonitorPtr mon, const char *name)
 {
-    char *cmd;
+    char *cmd = NULL;
     char *reply = NULL;
     int ret = -1;
+    char *safename;
 
-    if (virAsprintf(&cmd, "loadvm \"%s\"", name) < 0) {
+    if (!(safename = qemuMonitorEscapeArg(name)) ||
+        virAsprintf(&cmd, "loadvm \"%s\"", safename) < 0) {
         virReportOOMError();
-        return -1;
+        goto cleanup;
     }
 
     if (qemuMonitorHMPCommand(mon, cmd, &reply)) {
@@ -2619,6 +2624,7 @@ int qemuMonitorTextLoadSnapshot(qemuMonitorPtr mon, const char *name)
     ret = 0;
 
 cleanup:
+    VIR_FREE(safename);
     VIR_FREE(cmd);
     VIR_FREE(reply);
     return ret;
@@ -2626,13 +2632,15 @@ cleanup:
 
 int qemuMonitorTextDeleteSnapshot(qemuMonitorPtr mon, const char *name)
 {
-    char *cmd;
+    char *cmd = NULL;
     char *reply = NULL;
     int ret = -1;
+    char *safename;
 
-    if (virAsprintf(&cmd, "delvm \"%s\"", name) < 0) {
+    if (!(safename = qemuMonitorEscapeArg(name)) ||
+        virAsprintf(&cmd, "delvm \"%s\"", safename) < 0) {
         virReportOOMError();
-        return -1;
+        goto cleanup;
     }
     if (qemuMonitorHMPCommand(mon, cmd, &reply)) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
@@ -2659,6 +2667,7 @@ int qemuMonitorTextDeleteSnapshot(qemuMonitorPtr mon, const char *name)
     ret = 0;
 
 cleanup:
+    VIR_FREE(safename);
     VIR_FREE(cmd);
     VIR_FREE(reply);
     return ret;

@@ -93,6 +93,8 @@ virConsoleShutdown(virConsolePtr con)
 {
     con->quit = true;
     virStreamEventRemoveCallback(con->st);
+    if (con->st)
+        virStreamFree(con->st);
     if (con->stdinWatch != -1)
         virEventRemoveHandleImpl(con->stdinWatch);
     if (con->stdinWatch != -1)

@@ -65,7 +65,7 @@ void virJSONValueFree(virJSONValuePtr value)
 
     switch (value->type) {
     case VIR_JSON_TYPE_OBJECT:
-        for (i = 0 ; i < value->data.array.nvalues ; i++) {
+        for (i = 0 ; i < value->data.object.npairs; i++) {
             VIR_FREE(value->data.object.pairs[i].key);
             virJSONValueFree(value->data.object.pairs[i].value);
         }
@@ -928,6 +928,7 @@ virJSONValuePtr virJSONValueFromString(const char *jsonstring)
     yajl_parser_config cfg = { 1, 1 };
     yajl_handle hand;
     virJSONParser parser = { NULL, NULL, 0 };
+    virJSONValuePtr ret = NULL;
 
     VIR_DEBUG("string=%s", jsonstring);
 
@@ -948,6 +949,8 @@ virJSONValuePtr virJSONValueFromString(const char *jsonstring)
         goto cleanup;
     }
 
+    ret = parser.head;
+
 cleanup:
     yajl_free(hand);
 
@@ -961,7 +964,7 @@ cleanup:
 
     VIR_DEBUG("result=%p", parser.head);
 
-    return parser.head;
+    return ret;
 }
 
 

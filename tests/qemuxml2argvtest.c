@@ -123,7 +123,7 @@ static int testCompareXMLToArgvFiles(const char *xml,
     if (!(cmd = qemuBuildCommandLine(conn, &driver,
                                      vmdef, &monitor_chr, false, flags,
                                      migrateFrom, migrateFd, NULL,
-                                     VIR_VM_OP_CREATE)))
+                                     VIR_VM_OP_NO_OP)))
         goto fail;
 
     if (!!virGetLastError() != expectError) {

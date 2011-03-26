@@ -878,6 +878,7 @@ virRandomInitialize;
 virRun;
 virRunWithHook;
 virSetCloseExec;
+virSetInherit;
 virSetNonBlock;
 virSetUIDGID;
 virSkipSpaces;

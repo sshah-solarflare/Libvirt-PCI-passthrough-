@@ -377,6 +377,7 @@ struct _virDomainNetDef {
         struct {
             char *linkdev;
             int mode;
+            int vf_fallback_mode;
             virVirtualPortProfileParams virtPortProfile;
         } direct;
     } data;
@@ -1409,6 +1410,7 @@ VIR_ENUM_DECL(virDomainSeclabel)
 VIR_ENUM_DECL(virDomainClockOffset)
 
 VIR_ENUM_DECL(virDomainNetdevMacvtap)
+VIR_ENUM_DECL(virDomainNetdevMacvtapFallback)
 
 VIR_ENUM_DECL(virDomainTimerName)
 VIR_ENUM_DECL(virDomainTimerTrack)

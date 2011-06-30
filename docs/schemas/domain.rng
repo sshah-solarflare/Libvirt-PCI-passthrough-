@@ -955,6 +955,9 @@
                 <attribute name="mode">
                   <ref name="bridgeMode"/>
                 </attribute>
+                <attribute name="vf_fallback_mode">
+                  <ref name="fallbackMode"/>
+                </attribute>
               </optional>
               <empty/>
             </element>
@@ -2255,6 +2258,11 @@
     </data>
   </define>
   <define name="bridgeMode">
+    <data type="string">
+      <param name="pattern">(vepa|bridge|private)</param>
+    </data>
+  </define>
+  <define name="fallbackMode">
     <data type="string">
       <param name="pattern">(vepa|bridge|private)</param>
     </data>

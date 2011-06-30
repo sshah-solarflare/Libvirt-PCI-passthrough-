@@ -347,6 +347,11 @@ VIR_ENUM_IMPL(virDomainNetdevMacvtap, VIR_DOMAIN_NETDEV_MACVTAP_MODE_LAST,
               "private",
               "bridge")
 
+VIR_ENUM_IMPL(virDomainNetdevMacvtapFallback, VIR_DOMAIN_NETDEV_MACVTAP_MODE_LAST,
+              "vepa",
+              "private",
+              "bridge")
+
 VIR_ENUM_IMPL(virVirtualPort, VIR_VIRTUALPORT_TYPE_LAST,
               "none",
               "802.1Qbg",
@@ -2486,6 +2491,7 @@ virDomainNetDefParseXML(virCapsPtr caps,
     char *internal = NULL;
     char *devaddr = NULL;
     char *mode = NULL;
+    char *vf_fallback_mode = NULL;
     virNWFilterHashTablePtr filterparams = NULL;
     virVirtualPortProfileParams virtPort;
     bool virtPortParsed = false;
@@ -2534,6 +2540,7 @@ virDomainNetDefParseXML(virCapsPtr caps,
                        xmlStrEqual(cur->name, BAD_CAST "source")) {
                 dev  = virXMLPropString(cur, "dev");
                 mode = virXMLPropString(cur, "mode");
+                vf_fallback_mode = virXMLPropString(cur, "vf-fallback-mode");
             } else if ((virtPortParsed == false) &&
                        (def->type == VIR_DOMAIN_NET_TYPE_DIRECT) &&
                        xmlStrEqual(cur->name, BAD_CAST "virtualport")) {
@@ -2721,6 +2728,17 @@ virDomainNetDefParseXML(virCapsPtr caps,
             def->data.direct.mode = m;
         } else
             def->data.direct.mode = VIR_DOMAIN_NETDEV_MACVTAP_MODE_VEPA;
+
+        if (vf_fallback_mode != NULL) {
+            int m;
+            if ((m = virDomainNetdevMacvtapFallbackTypeFromString(vf_fallback_mode)) < 0) {
+                virDomainReportError(VIR_ERR_INTERNAL_ERROR, "%s",
+                                     _("Unkown mode has been specified"));
+                goto error;
+            }
+            def->data.direct.vf_fallback_mode = m;
+        } else
+            def->data.direct.vf_fallback_mode = VIR_DOMAIN_NETDEV_MACVTAP_MODE_VEPA;
 
         if (virtPortParsed)
             def->data.direct.virtPortProfile = virtPort;
@@ -6823,6 +6841,10 @@ virDomainNetDefFormat(virBufferPtr buf,
                               def->data.direct.linkdev);
         virBufferVSprintf(buf, " mode='%s'",
                    virDomainNetdevMacvtapTypeToString(def->data.direct.mode));
+        if (def->data.direct.vf_fallback_mode != VIR_DOMAIN_NETDEV_MACVTAP_MODE_VEPA)
+            virBufferVSprintf(buf, " vf-fallback-mode='%s'",
+                              virDomainNetdevMacvtapFallbackTypeToString(
+                                  def->data.direct.vf_fallback_mode));
         virBufferAddLit(buf, "/>\n");
         virVirtualPortProfileFormat(buf, &def->data.direct.virtPortProfile,
                                     "      ");

@@ -126,6 +126,8 @@ int qemuPhysIfaceConnect(virDomainDefPtr def,
                          unsigned long long qemuCmdFlags,
                          enum virVMOperationType vmop);
 
+int qemuPhysIfaceDisconnect(virDomainNetDefPtr net);
+
 int qemuOpenVhostNet(virDomainDefPtr def,
                      virDomainNetDefPtr net,
                      unsigned long long qemuCmdFlags,

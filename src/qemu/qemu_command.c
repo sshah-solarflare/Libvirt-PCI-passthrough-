@@ -167,6 +167,16 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
     return rc;
 }
 
+int
+qemuPhysIfaceDisconnect(virDomainNetDefPtr net)
+{
+#if WITH_MACVTAP
+    delMacvtap(net->ifname, net->mac, net->data.direct.linkdev,
+               &net->data.direct.virtPortProfile);
+    VIR_FREE(net->ifname);
+    return 0;
+#endif
+}
 
 int
 qemuNetworkIfaceConnect(virDomainDefPtr def,

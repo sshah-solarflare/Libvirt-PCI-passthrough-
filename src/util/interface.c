@@ -451,10 +451,10 @@ ifaceFindReservedVf(const char *ifname, const unsigned char *mac)
     unsigned int i;
 
     for(i=0; (dev = ifaceGetVf(ifname, i)) != NULL; i++) {
-        unsigned char devMac[VIR_MAC_STRING_BUFLEN];
+        unsigned char devMac[VIR_MAC_BUFLEN];
 
         if (!pciVfGetMacAddr(dev, devMac) &&
-            !virMacAddrCompare((char *)devMac, (char *)mac)) {
+            !memcmp(devMac, mac, VIR_MAC_BUFLEN)) {
             return dev;
         }
         pciFreeDevice(dev);

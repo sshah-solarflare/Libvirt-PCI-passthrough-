@@ -6343,14 +6343,14 @@ static bool
 virDomainDefFindNetworkForDevice(virDomainDefPtr def,
                                  pciDevice *pciDev)
 {
-    unsigned char mac[VIR_MAC_STRING_BUFLEN];
+    unsigned char mac[VIR_MAC_BUFLEN];
     int i;
 
     if (pciDeviceIsVf(pciDev) && !pciVfGetMacAddr(pciDev, mac)) {
         for (i = 0; i < def->nnets; i++) {
             virDomainNetDefPtr net = def->nets[i];
 
-            if (!virMacAddrCompare((char *)net->mac, (char *)mac)) {
+            if (!memcmp(net->mac, mac, VIR_MAC_BUFLEN)) {
                 if ((net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
                      net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) ||
                     net->vf_hotplug != NULL) {

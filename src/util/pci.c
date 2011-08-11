@@ -1511,7 +1511,7 @@ int pciDeviceIsVf(pciDevice *device)
 
 int pciVfGetMacAddr(pciDevice *dev, unsigned char *mac)
 {
-    char *node, *buf, *macstr;
+    char *node, *buf;
     int rc;
 
     if (virAsprintf(&node, PCI_SYSFS "devices/%s/mac_addr", dev->name) < 0) {
@@ -1526,16 +1526,18 @@ int pciVfGetMacAddr(pciDevice *dev, unsigned char *mac)
     }
     VIR_FREE(node);
 
-    /* Ensure there's a trailing NULL */
-    macstr = strndup(buf, rc + 1);
-    VIR_FREE(buf);
-    if (macstr == NULL) {
-        virReportOOMError();
-        return -1;
+    /* The incoming buffer may not have a trailing NUL */
+    if (buf[rc - 1] != '\0') {
+        if (VIR_REALLOC_N(buf, rc + 1) < 0) {
+            virReportOOMError();
+            VIR_FREE(buf);
+            return -1;
+        }
+        buf[rc] = '\0';
     }
 
-    rc = virParseMacAddr(macstr, mac);
-    VIR_FREE(macstr);
+    rc = virParseMacAddr(buf, mac);
+    VIR_FREE(buf);
     return rc;
 }
 

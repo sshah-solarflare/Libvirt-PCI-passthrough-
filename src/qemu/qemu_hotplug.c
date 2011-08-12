@@ -110,7 +110,7 @@ int qemuDomainChangeEjectableMedia(struct qemud_driver *driver,
     }
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    qemuDomainDiskAudit(vm, origdisk, disk, "update", ret >= 0);
+    qemuAuditDisk(vm, origdisk, disk, "update", ret >= 0);
 
     if (ret < 0)
         goto error;
@@ -211,7 +211,7 @@ int qemuDomainAttachPciDiskDevice(struct qemud_driver *driver,
     }
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    qemuDomainDiskAudit(vm, NULL, disk, "attach", ret >= 0);
+    qemuAuditDisk(vm, NULL, disk, "attach", ret >= 0);
 
     if (ret < 0)
         goto error;
@@ -447,7 +447,7 @@ int qemuDomainAttachSCSIDisk(struct qemud_driver *driver,
     }
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    qemuDomainDiskAudit(vm, NULL, disk, "attach", ret >= 0);
+    qemuAuditDisk(vm, NULL, disk, "attach", ret >= 0);
 
     if (ret < 0)
         goto error;
@@ -534,7 +534,7 @@ int qemuDomainAttachUsbMassstorageDevice(struct qemud_driver *driver,
     }
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    qemuDomainDiskAudit(vm, NULL, disk, "attach", ret >= 0);
+    qemuAuditDisk(vm, NULL, disk, "attach", ret >= 0);
 
     if (ret < 0)
         goto error;
@@ -671,13 +671,13 @@ int qemuDomainAttachNetDevice(virConnectPtr conn,
         (qemuCmdFlags & QEMUD_CMD_FLAG_DEVICE)) {
         if (qemuMonitorAddNetdev(priv->mon, netstr) < 0) {
             qemuDomainObjExitMonitorWithDriver(driver, vm);
-            qemuDomainNetAudit(vm, NULL, net, "attach", false);
+            qemuAuditNet(vm, NULL, net, "attach", false);
             goto try_tapfd_close;
         }
     } else {
         if (qemuMonitorAddHostNetwork(priv->mon, netstr) < 0) {
             qemuDomainObjExitMonitorWithDriver(driver, vm);
-            qemuDomainNetAudit(vm, NULL, net, "attach", false);
+            qemuAuditNet(vm, NULL, net, "attach", false);
             goto try_tapfd_close;
         }
     }
@@ -703,14 +703,14 @@ int qemuDomainAttachNetDevice(virConnectPtr conn,
     if (qemuCmdFlags & QEMUD_CMD_FLAG_DEVICE) {
         if (qemuMonitorAddDevice(priv->mon, nicstr) < 0) {
             qemuDomainObjExitMonitorWithDriver(driver, vm);
-            qemuDomainNetAudit(vm, NULL, net, "attach", false);
+            qemuAuditNet(vm, NULL, net, "attach", false);
             goto try_remove;
         }
     } else {
         if (qemuMonitorAddPCINetwork(priv->mon, nicstr,
                                      &guestAddr) < 0) {
             qemuDomainObjExitMonitorWithDriver(driver, vm);
-            qemuDomainNetAudit(vm, NULL, net, "attach", false);
+            qemuAuditNet(vm, NULL, net, "attach", false);
             goto try_remove;
         }
         net->info.type = VIR_DOMAIN_DEVICE_ADDRESS_TYPE_PCI;
@@ -718,7 +718,7 @@ int qemuDomainAttachNetDevice(virConnectPtr conn,
     }
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    qemuDomainNetAudit(vm, NULL, net, "attach", true);
+    qemuAuditNet(vm, NULL, net, "attach", true);
 
     ret = 0;
 
@@ -860,7 +860,7 @@ int qemuDomainAttachHostPciDevice(struct qemud_driver *driver,
         hostdev->info.type = VIR_DOMAIN_DEVICE_ADDRESS_TYPE_PCI;
         memcpy(&hostdev->info.addr.pci, &guestAddr, sizeof(guestAddr));
     }
-    qemuDomainHostdevAudit(vm, hostdev, "attach", ret == 0);
+    qemuAuditHostdev(vm, hostdev, "attach", ret == 0);
     if (ret < 0)
         goto error;
 
@@ -937,7 +937,7 @@ int qemuDomainAttachHostUsbDevice(struct qemud_driver *driver,
                                            hostdev->source.subsys.u.usb.bus,
                                            hostdev->source.subsys.u.usb.device);
     qemuDomainObjExitMonitorWithDriver(driver, vm);
-    qemuDomainHostdevAudit(vm, hostdev, "attach", ret == 0);
+    qemuAuditHostdev(vm, hostdev, "attach", ret == 0);
     if (ret < 0)
         goto error;
 
@@ -1273,7 +1273,7 @@ int qemuDomainDetachPciDiskDevice(struct qemud_driver *driver,
 
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    qemuDomainDiskAudit(vm, detach, NULL, "detach", ret >= 0);
+    qemuAuditDisk(vm, detach, NULL, "detach", ret >= 0);
 
     if ((qemuCmdFlags & QEMUD_CMD_FLAG_DEVICE) &&
         qemuDomainPCIAddressReleaseAddr(priv->pciaddrs, &detach->info) < 0)
@@ -1357,7 +1357,7 @@ int qemuDomainDetachSCSIDiskDevice(struct qemud_driver *driver,
 
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    qemuDomainDiskAudit(vm, detach, NULL, "detach", ret >= 0);
+    qemuAuditDisk(vm, detach, NULL, "detach", ret >= 0);
 
     virDomainDiskRemove(vm->def, i);
 
@@ -1512,14 +1512,14 @@ int qemuDomainDetachNetDevice(struct qemud_driver *driver,
     if (qemuCmdFlags & QEMUD_CMD_FLAG_DEVICE) {
         if (qemuMonitorDelDevice(priv->mon, detach->info.alias) < 0) {
             qemuDomainObjExitMonitor(vm);
-            qemuDomainNetAudit(vm, detach, NULL, "detach", false);
+            qemuAuditNet(vm, detach, NULL, "detach", false);
             goto cleanup;
         }
     } else {
         if (qemuMonitorRemovePCIDevice(priv->mon,
                                        &detach->info.addr.pci) < 0) {
             qemuDomainObjExitMonitorWithDriver(driver, vm);
-            qemuDomainNetAudit(vm, detach, NULL, "detach", false);
+            qemuAuditNet(vm, detach, NULL, "detach", false);
             goto cleanup;
         }
     }
@@ -1528,19 +1528,19 @@ int qemuDomainDetachNetDevice(struct qemud_driver *driver,
         (qemuCmdFlags & QEMUD_CMD_FLAG_DEVICE)) {
         if (qemuMonitorRemoveNetdev(priv->mon, hostnet_name) < 0) {
             qemuDomainObjExitMonitorWithDriver(driver, vm);
-            qemuDomainNetAudit(vm, detach, NULL, "detach", false);
+            qemuAuditNet(vm, detach, NULL, "detach", false);
             goto cleanup;
         }
     } else {
         if (qemuMonitorRemoveHostNetwork(priv->mon, vlan, hostnet_name) < 0) {
             qemuDomainObjExitMonitorWithDriver(driver, vm);
-            qemuDomainNetAudit(vm, detach, NULL, "detach", false);
+            qemuAuditNet(vm, detach, NULL, "detach", false);
             goto cleanup;
         }
     }
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    qemuDomainNetAudit(vm, detach, NULL, "detach", true);
+    qemuAuditNet(vm, detach, NULL, "detach", true);
 
     if ((qemuCmdFlags & QEMUD_CMD_FLAG_DEVICE) &&
         qemuDomainPCIAddressReleaseAddr(priv->pciaddrs, &detach->info) < 0)
@@ -1641,7 +1641,7 @@ int qemuDomainDetachHostPciDevice(struct qemud_driver *driver,
         ret = qemuMonitorRemovePCIDevice(priv->mon, &detach->info.addr.pci);
     }
     qemuDomainObjExitMonitorWithDriver(driver, vm);
-    qemuDomainHostdevAudit(vm, detach, "detach", ret == 0);
+    qemuAuditHostdev(vm, detach, "detach", ret == 0);
     if (ret < 0)
         return -1;
 
@@ -1740,7 +1740,7 @@ int qemuDomainDetachHostUsbDevice(struct qemud_driver *driver,
     qemuDomainObjEnterMonitorWithDriver(driver, vm);
     ret = qemuMonitorDelDevice(priv->mon, detach->info.alias);
     qemuDomainObjExitMonitorWithDriver(driver, vm);
-    qemuDomainHostdevAudit(vm, detach, "detach", ret == 0);
+    qemuAuditHostdev(vm, detach, "detach", ret == 0);
     if (ret < 0)
         return -1;
 

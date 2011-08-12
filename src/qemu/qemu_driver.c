@@ -760,7 +760,7 @@ qemuHandleMonitorEOF(qemuMonitorPtr mon ATTRIBUTE_UNUSED,
                                      VIR_DOMAIN_EVENT_STOPPED_SHUTDOWN);
 
     qemudShutdownVMDaemon(driver, vm, 0);
-    qemuDomainStopAudit(vm, hasError ? "failed" : "shutdown");
+    qemuAuditDomainStop(vm, hasError ? "failed" : "shutdown");
 
     if (!vm->persistent)
         virDomainRemoveInactive(&driver->domains, vm);
@@ -3072,7 +3072,7 @@ static int qemudStartVMDaemon(virConnectPtr conn,
         driver->securityDriver->domainGenSecurityLabel) {
         ret = driver->securityDriver->domainGenSecurityLabel(driver->securityDriver,
                                                              vm);
-        qemuDomainSecurityLabelAudit(vm, ret >= 0);
+        qemuAuditSecurityLabel(vm, ret >= 0);
         if (ret < 0)
             goto cleanup;
     }
@@ -4018,7 +4018,7 @@ static virDomainPtr qemudDomainCreate(virConnectPtr conn, const char *xml,
     if (qemudStartVMDaemon(conn, driver, vm, NULL,
                            (flags & VIR_DOMAIN_START_PAUSED) != 0,
                            -1, NULL, VIR_VM_OP_CREATE) < 0) {
-        qemuDomainStartAudit(vm, "booted", false);
+        qemuAuditDomainStart(vm, "booted", false);
         if (qemuDomainObjEndJob(vm) > 0)
             virDomainRemoveInactive(&driver->domains,
                                     vm);
@@ -4029,7 +4029,7 @@ static virDomainPtr qemudDomainCreate(virConnectPtr conn, const char *xml,
     event = virDomainEventNewFromObj(vm,
                                      VIR_DOMAIN_EVENT_STARTED,
                                      VIR_DOMAIN_EVENT_STARTED_BOOTED);
-    qemuDomainStartAudit(vm, "booted", true);
+    qemuAuditDomainStart(vm, "booted", true);
 
     dom = virGetDomain(conn, vm->def->name, vm->def->uuid);
     if (dom) dom->id = vm->def->id;
@@ -4244,7 +4244,7 @@ static int qemudDomainDestroy(virDomainPtr dom) {
     event = virDomainEventNewFromObj(vm,
                                      VIR_DOMAIN_EVENT_STOPPED,
                                      VIR_DOMAIN_EVENT_STOPPED_DESTROYED);
-    qemuDomainStopAudit(vm, "destroyed");
+    qemuAuditDomainStop(vm, "destroyed");
 
     if (!vm->persistent) {
         if (qemuDomainObjEndJob(vm) > 0)
@@ -4356,8 +4356,7 @@ static int qemudDomainSetMemory(virDomainPtr dom, unsigned long newmem) {
     qemuDomainObjEnterMonitor(vm);
     r = qemuMonitorSetBalloon(priv->mon, newmem);
     qemuDomainObjExitMonitor(vm);
-    qemuDomainMemoryAudit(vm, vm->def->mem.cur_balloon, newmem, "update",
-                          r == 1);
+    qemuAuditMemory(vm, vm->def->mem.cur_balloon, newmem, "update", r == 1);
     if (r < 0)
         goto endjob;
 
@@ -4949,7 +4948,7 @@ static int qemudDomainSaveFlag(struct qemud_driver *driver, virDomainPtr dom,
 
     /* Shut it down */
     qemudShutdownVMDaemon(driver, vm, 0);
-    qemuDomainStopAudit(vm, "saved");
+    qemuAuditDomainStop(vm, "saved");
     event = virDomainEventNewFromObj(vm,
                                      VIR_DOMAIN_EVENT_STOPPED,
                                      VIR_DOMAIN_EVENT_STOPPED_SAVED);
@@ -5351,7 +5350,7 @@ static int qemudDomainCoreDump(virDomainPtr dom,
 endjob:
     if ((ret == 0) && (flags & VIR_DUMP_CRASH)) {
         qemudShutdownVMDaemon(driver, vm, 0);
-        qemuDomainStopAudit(vm, "crashed");
+        qemuAuditDomainStop(vm, "crashed");
         event = virDomainEventNewFromObj(vm,
                                          VIR_DOMAIN_EVENT_STOPPED,
                                          VIR_DOMAIN_EVENT_STOPPED_CRASHED);
@@ -5481,7 +5480,7 @@ static int qemudDomainHotplugVcpus(virDomainObjPtr vm, unsigned int nvcpus)
 
 cleanup:
     qemuDomainObjExitMonitor(vm);
-    qemuDomainVcpuAudit(vm, oldvcpus, nvcpus, "update", rc == 1);
+    qemuAuditVcpu(vm, oldvcpus, nvcpus, "update", rc == 1);
     return ret;
 
 unsupported:
@@ -6260,14 +6259,14 @@ qemudDomainSaveImageStartVM(virConnectPtr conn,
     *read_pid = -1;
 
     if (ret < 0) {
-        qemuDomainStartAudit(vm, "restored", false);
+        qemuAuditDomainStart(vm, "restored", false);
         goto out;
     }
 
     event = virDomainEventNewFromObj(vm,
                                      VIR_DOMAIN_EVENT_STARTED,
                                      VIR_DOMAIN_EVENT_STARTED_RESTORED);
-    qemuDomainStartAudit(vm, "restored", true);
+    qemuAuditDomainStart(vm, "restored", true);
     if (event)
         qemuDomainEventQueue(driver, event);
 
@@ -6644,7 +6643,7 @@ static int qemudDomainObjStart(virConnectPtr conn,
 
     ret = qemudStartVMDaemon(conn, driver, vm, NULL, start_paused, -1, NULL,
                              VIR_VM_OP_CREATE);
-    qemuDomainStartAudit(vm, "booted", ret >= 0);
+    qemuAuditDomainStart(vm, "booted", ret >= 0);
     if (ret >= 0) {
         virDomainEventPtr event =
             virDomainEventNewFromObj(vm,
@@ -8585,7 +8584,7 @@ qemudDomainMigratePrepareTunnel(virConnectPtr dconn,
                                      -1, NULL, VIR_VM_OP_MIGRATE_IN_START);
     VIR_FREE(migrateFrom);
     if (internalret < 0) {
-        qemuDomainStartAudit(vm, "migrated", false);
+        qemuAuditDomainStart(vm, "migrated", false);
         /* Note that we don't set an error here because qemudStartVMDaemon
          * should have already done that.
          */
@@ -8599,7 +8598,7 @@ qemudDomainMigratePrepareTunnel(virConnectPtr dconn,
     if (virFDStreamConnectUNIX(st,
                                unixfile,
                                false) < 0) {
-        qemuDomainStartAudit(vm, "migrated", false);
+        qemuAuditDomainStart(vm, "migrated", false);
         qemudShutdownVMDaemon(driver, vm, 0);
         if (!vm->persistent) {
             if (qemuDomainObjEndJob(vm) > 0)
@@ -8612,7 +8611,7 @@ qemudDomainMigratePrepareTunnel(virConnectPtr dconn,
         goto endjob;
     }
 
-    qemuDomainStartAudit(vm, "migrated", true);
+    qemuAuditDomainStart(vm, "migrated", true);
 
     event = virDomainEventNewFromObj(vm,
                                      VIR_DOMAIN_EVENT_STARTED,
@@ -8827,7 +8826,7 @@ qemudDomainMigratePrepare2 (virConnectPtr dconn,
     snprintf (migrateFrom, sizeof (migrateFrom), "tcp:0.0.0.0:%d", this_port);
     if (qemudStartVMDaemon (dconn, driver, vm, migrateFrom, true,
                             -1, NULL, VIR_VM_OP_MIGRATE_IN_START) < 0) {
-        qemuDomainStartAudit(vm, "migrated", false);
+        qemuAuditDomainStart(vm, "migrated", false);
         /* Note that we don't set an error here because qemudStartVMDaemon
          * should have already done that.
          */
@@ -8848,7 +8847,7 @@ qemudDomainMigratePrepare2 (virConnectPtr dconn,
         VIR_WARN0("Unable to encode migration cookie");
     }
 
-    qemuDomainStartAudit(vm, "migrated", true);
+    qemuAuditDomainStart(vm, "migrated", true);
     event = virDomainEventNewFromObj(vm,
                                      VIR_DOMAIN_EVENT_STARTED,
                                      VIR_DOMAIN_EVENT_STARTED_MIGRATED);
@@ -9459,7 +9458,7 @@ qemudDomainMigratePerform (virDomainPtr dom,
 
     /* Clean up the source domain. */
     qemudShutdownVMDaemon(driver, vm, 1);
-    qemuDomainStopAudit(vm, "migrated");
+    qemuAuditDomainStop(vm, "migrated");
     resume = 0;
 
     event = virDomainEventNewFromObj(vm,
@@ -9663,7 +9662,7 @@ qemudDomainMigrateFinish2 (virConnectPtr dconn,
         }
     } else {
         qemudShutdownVMDaemon(driver, vm, 1);
-        qemuDomainStopAudit(vm, "failed");
+        qemuAuditDomainStop(vm, "failed");
         event = virDomainEventNewFromObj(vm,
                                          VIR_DOMAIN_EVENT_STOPPED,
                                          VIR_DOMAIN_EVENT_STOPPED_FAILED);
@@ -10543,7 +10542,7 @@ static int qemuDomainRevertToSnapshot(virDomainSnapshotPtr snapshot,
 
             rc = qemudStartVMDaemon(snapshot->domain->conn, driver, vm, NULL,
                                     false, -1, NULL, VIR_VM_OP_CREATE);
-            qemuDomainStartAudit(vm, "from-snapshot", rc >= 0);
+            qemuAuditDomainStart(vm, "from-snapshot", rc >= 0);
             if (qemuDomainSnapshotSetCurrentInactive(vm, driver->snapshotDir) < 0)
                 goto endjob;
             if (rc < 0)
@@ -10576,7 +10575,7 @@ static int qemuDomainRevertToSnapshot(virDomainSnapshotPtr snapshot,
 
         if (virDomainObjIsActive(vm)) {
             qemudShutdownVMDaemon(driver, vm, 0);
-            qemuDomainStopAudit(vm, "from-snapshot");
+            qemuAuditDomainStop(vm, "from-snapshot");
             event = virDomainEventNewFromObj(vm,
                                              VIR_DOMAIN_EVENT_STOPPED,
                                              VIR_DOMAIN_EVENT_STOPPED_FROM_SNAPSHOT);

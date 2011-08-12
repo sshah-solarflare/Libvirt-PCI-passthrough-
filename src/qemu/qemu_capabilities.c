@@ -1174,6 +1174,17 @@ int qemuCapsExtractVersionInfo(const char *qemu,
                              &version, &is_kvm, &kvm_version) == -1)
         goto cleanup2;
 
+    /*
+     * RHEL-6 specific hack to enable some features that were backported
+     * Only RHEL-6 puts KVM in /usr/libexec, so we hook off that since
+     * version numbers don't place nice with backports
+     */
+    if (STREQ(qemu, "/usr/libexec/qemu-kvm") &&
+        version >= 12000) {
+        flags |= QEMUD_CMD_FLAG_MONITOR_JSON;
+        flags |= QEMUD_CMD_FLAG_NETDEV;
+    }
+
     if (flags & QEMUD_CMD_FLAG_DEVICE)
         qemuCapsParsePCIDeviceStrs(qemu, &flags);
 

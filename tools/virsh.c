@@ -251,13 +251,17 @@ static const vshCmdGrp *vshCmdGrpSearch(const char *grpname);
 static int vshCmdGrpHelp(vshControl *ctl, const char *name);
 
 static vshCmdOpt *vshCommandOpt(const vshCmd *cmd, const char *name);
-static int vshCommandOptInt(const vshCmd *cmd, const char *name, int *found);
-static unsigned long vshCommandOptUL(const vshCmd *cmd, const char *name,
-                                     int *found);
-static const char *vshCommandOptString(const vshCmd *cmd, const char *name,
-                                       int *found);
-static long long vshCommandOptLongLong(const vshCmd *cmd, const char *name,
-                                       int *found);
+static int vshCommandOptInt(const vshCmd *cmd, const char *name, int *value)
+    ATTRIBUTE_NONNULL(3) ATTRIBUTE_RETURN_CHECK;
+static int vshCommandOptUL(const vshCmd *cmd, const char *name,
+                           unsigned long *value)
+    ATTRIBUTE_NONNULL(3) ATTRIBUTE_RETURN_CHECK;
+static int vshCommandOptString(const vshCmd *cmd, const char *name,
+                               const char **value)
+    ATTRIBUTE_NONNULL(3) ATTRIBUTE_RETURN_CHECK;
+static int vshCommandOptLongLong(const vshCmd *cmd, const char *name,
+                                 long long *value)
+    ATTRIBUTE_NONNULL(3) ATTRIBUTE_RETURN_CHECK;
 static int vshCommandOptBool(const vshCmd *cmd, const char *name);
 static char *vshCommandOptArgv(const vshCmd *cmd, int count);
 
@@ -589,11 +593,9 @@ cmdHelp(vshControl *ctl, const vshCmd *cmd)
  {
     const vshCmdDef *c;
     const vshCmdGrp *g;
-    const char *name;
+    const char *name = NULL;
 
-    name = vshCommandOptString(cmd, "command", NULL);
-
-    if (!name) {
+    if (vshCommandOptString(cmd, "command", &name) <= 0) {
         const vshCmdGrp *grp;
         const vshCmdDef *def;
 
@@ -692,7 +694,7 @@ static int
 cmdConnect(vshControl *ctl, const vshCmd *cmd)
 {
     int ro = vshCommandOptBool(cmd, "readonly");
-    const char *name;
+    const char *name = NULL;
 
     if (ctl->conn) {
         int ret;
@@ -704,8 +706,7 @@ cmdConnect(vshControl *ctl, const vshCmd *cmd)
     }
 
     VIR_FREE(ctl->name);
-    name = vshCommandOptString(cmd, "name", NULL);
-    if (!name)
+    if (vshCommandOptString(cmd, "name", &name) <= 0)
         return FALSE;
     ctl->name = vshStrdup(ctl, name);
 
@@ -773,7 +774,7 @@ cmdConsole(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
     int ret;
-    const char *name;
+    const char *name = NULL;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
@@ -781,7 +782,8 @@ cmdConsole(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         return FALSE;
 
-    name = vshCommandOptString(cmd, "devname", NULL);
+    if (vshCommandOptString(cmd, "devname", &name) < 0)
+        return FALSE;
 
     ret = cmdRunConsole(ctl, dom, name);
 
@@ -964,7 +966,7 @@ static int
 cmdDomblkstat (vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
-    const char *name, *device;
+    const char *name = NULL, *device = NULL;
     struct _virDomainBlockStats stats;
 
     if (!vshConnectionUsability (ctl, ctl->conn))
@@ -973,7 +975,7 @@ cmdDomblkstat (vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain (ctl, cmd, &name)))
         return FALSE;
 
-    if (!(device = vshCommandOptString (cmd, "device", NULL))) {
+    if (vshCommandOptString (cmd, "device", &device) <= 0) {
         virDomainFree(dom);
         return FALSE;
     }
@@ -1021,7 +1023,7 @@ static int
 cmdDomIfstat (vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
-    const char *name, *device;
+    const char *name = NULL, *device = NULL;
     struct _virDomainInterfaceStats stats;
 
     if (!vshConnectionUsability (ctl, ctl->conn))
@@ -1030,7 +1032,7 @@ cmdDomIfstat (vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain (ctl, cmd, &name)))
         return FALSE;
 
-    if (!(device = vshCommandOptString (cmd, "interface", NULL))) {
+    if (vshCommandOptString (cmd, "interface", &device) <= 0) {
         virDomainFree(dom);
         return FALSE;
     }
@@ -1144,7 +1146,7 @@ cmdDomblkinfo(vshControl *ctl, const vshCmd *cmd)
     virDomainBlockInfo info;
     virDomainPtr dom;
     int ret = TRUE;
-    const char *device;
+    const char *device = NULL;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
@@ -1152,7 +1154,7 @@ cmdDomblkinfo(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         return FALSE;
 
-    if (!(device = vshCommandOptString (cmd, "device", NULL))) {
+    if (vshCommandOptString (cmd, "device", &device) <= 0) {
         virDomainFree(dom);
         return FALSE;
     }
@@ -1230,8 +1232,7 @@ static int
 cmdCreate(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
-    const char *from;
-    int found;
+    const char *from = NULL;
     int ret = TRUE;
     char *buffer;
 #ifndef WIN32
@@ -1242,8 +1243,7 @@ cmdCreate(vshControl *ctl, const vshCmd *cmd)
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "file", &from) <= 0)
         return FALSE;
 
     if (virFileReadAll(from, VIRSH_MAX_XML_FILE, &buffer) < 0)
@@ -1288,16 +1288,14 @@ static int
 cmdDefine(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
-    const char *from;
-    int found;
+    const char *from = NULL;
     int ret = TRUE;
     char *buffer;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "file", &from) <= 0)
         return FALSE;
 
     if (virFileReadAll(from, VIRSH_MAX_XML_FILE, &buffer) < 0)
@@ -1336,15 +1334,13 @@ cmdUndefine(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
     int ret = TRUE;
-    const char *name;
-    int found;
+    const char *name = NULL;
     int id;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    name = vshCommandOptString(cmd, "domain", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "domain", &name) <= 0)
         return FALSE;
 
     if (name && virStrToLong_i(name, NULL, 10, &id) == 0
@@ -1454,14 +1450,14 @@ static int
 cmdSave(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
-    const char *name;
-    const char *to;
+    const char *name = NULL;
+    const char *to = NULL;
     int ret = TRUE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    if (!(to = vshCommandOptString(cmd, "file", NULL)))
+    if (vshCommandOptString(cmd, "file", &to) <= 0)
         return FALSE;
 
     if (!(dom = vshCommandOptDomain(ctl, cmd, &name)))
@@ -1594,16 +1590,14 @@ static int
 cmdSchedInfoUpdate(vshControl *ctl, const vshCmd *cmd,
                    virSchedParameterPtr param)
 {
-    int found;
-    const char *data;
+    const char *data = NULL;
 
     /* Legacy 'weight' parameter */
     if (STREQ(param->field, "weight") &&
         param->type == VIR_DOMAIN_SCHED_FIELD_UINT &&
         vshCommandOptBool(cmd, "weight")) {
         int val;
-        val = vshCommandOptInt(cmd, "weight", &found);
-        if (!found) {
+        if (vshCommandOptInt(cmd, "weight", &val) <= 0) {
             vshError(ctl, "%s", _("Invalid value of weight"));
             return -1;
         } else {
@@ -1617,8 +1611,7 @@ cmdSchedInfoUpdate(vshControl *ctl, const vshCmd *cmd,
         param->type == VIR_DOMAIN_SCHED_FIELD_UINT &&
         vshCommandOptBool(cmd, "cap")) {
         int val;
-        val = vshCommandOptInt(cmd, "cap", &found);
-        if (!found) {
+        if (vshCommandOptInt(cmd, "cap", &val) <= 0) {
             vshError(ctl, "%s", _("Invalid value of cap"));
             return -1;
         } else {
@@ -1627,7 +1620,7 @@ cmdSchedInfoUpdate(vshControl *ctl, const vshCmd *cmd,
         return 1;
     }
 
-    if ((data = vshCommandOptString(cmd, "set", NULL))) {
+    if (vshCommandOptString(cmd, "set", &data) > 0) {
         char *val = strchr(data, '=');
         int match = 0;
         if (!val) {
@@ -1746,8 +1739,8 @@ cmdSchedinfo(vshControl *ctl, const vshCmd *cmd)
             /* See if we've tried to --set var=val.  If so, the fact that
                we reach this point (with update == 0) means that "var" did
                not match any of the settable parameters.  Report the error.  */
-            const char *var_value_pair = vshCommandOptString(cmd, "set", NULL);
-            if (var_value_pair) {
+            const char *var_value_pair = NULL;
+            if (vshCommandOptString(cmd, "set", &var_value_pair) > 0) {
                 vshError(ctl, _("invalid scheduler option: %s"),
                          var_value_pair);
                 goto cleanup;
@@ -1804,15 +1797,13 @@ static const vshCmdOptDef opts_restore[] = {
 static int
 cmdRestore(vshControl *ctl, const vshCmd *cmd)
 {
-    const char *from;
-    int found;
+    const char *from = NULL;
     int ret = TRUE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "file", &from) <= 0)
         return FALSE;
 
     if (virDomainRestore(ctl->conn, from) == 0) {
@@ -1845,15 +1836,15 @@ static int
 cmdDump(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
-    const char *name;
-    const char *to;
+    const char *name = NULL;
+    const char *to = NULL;
     int ret = TRUE;
     int flags = 0;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    if (!(to = vshCommandOptString(cmd, "file", NULL)))
+    if (vshCommandOptString(cmd, "file", &to) <= 0)
         return FALSE;
 
     if (!(dom = vshCommandOptDomain(ctl, cmd, &name)))
@@ -2281,7 +2272,7 @@ cmdFreecell(vshControl *ctl, const vshCmd *cmd)
 {
     int func_ret = FALSE;
     int ret;
-    int cell, cell_given;
+    int cell = -1, cell_given;
     unsigned long long memory;
     xmlNodePtr *nodes = NULL;
     unsigned long nodes_cnt;
@@ -2297,7 +2288,10 @@ cmdFreecell(vshControl *ctl, const vshCmd *cmd)
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    cell = vshCommandOptInt(cmd, "cellno", &cell_given);
+    if ( (cell_given = vshCommandOptInt(cmd, "cellno", &cell)) < 0) {
+        vshError(ctl, "%s", _("cell number has to be a number"));
+        goto cleanup;
+    }
     all_given = vshCommandOptBool(cmd, "all");
 
     if (all_given && cell_given) {
@@ -2409,10 +2403,11 @@ static const vshCmdOptDef opts_maxvcpus[] = {
 static int
 cmdMaxvcpus(vshControl *ctl, const vshCmd *cmd)
 {
-    const char *type;
+    const char *type = NULL;
     int vcpus;
 
-    type = vshCommandOptString(cmd, "type", NULL);
+    if (vshCommandOptString(cmd, "type", &type) < 0)
+        return FALSE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
@@ -2707,9 +2702,8 @@ cmdVcpupin(vshControl *ctl, const vshCmd *cmd)
     virDomainPtr dom;
     virNodeInfo nodeinfo;
     int vcpu;
-    const char *cpulist;
+    const char *cpulist = NULL;
     int ret = TRUE;
-    int vcpufound = 0;
     unsigned char *cpumap;
     int cpumaplen;
     int i;
@@ -2721,14 +2715,13 @@ cmdVcpupin(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         return FALSE;
 
-    vcpu = vshCommandOptInt(cmd, "vcpu", &vcpufound);
-    if (!vcpufound) {
+    if (vshCommandOptInt(cmd, "vcpu", &vcpu) <= 0) {
         vshError(ctl, "%s", _("vcpupin: Invalid or missing vCPU number."));
         virDomainFree(dom);
         return FALSE;
     }
 
-    if (!(cpulist = vshCommandOptString(cmd, "cpulist", NULL))) {
+    if (vshCommandOptString(cmd, "cpulist", &cpulist) <= 0) {
         virDomainFree(dom);
         return FALSE;
     }
@@ -2857,7 +2850,8 @@ cmdSetvcpus(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         return FALSE;
 
-    count = vshCommandOptInt(cmd, "count", &count);
+    if (vshCommandOptInt(cmd, "count", &count) < 0)
+        return FALSE;
 
     if (!flags) {
         if (virDomainSetVcpus(dom, count) != 0) {
@@ -2893,7 +2887,7 @@ cmdSetmem(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
     virDomainInfo info;
-    unsigned long kilobytes;
+    unsigned long kilobytes = 0;
     int ret = TRUE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
@@ -2902,7 +2896,11 @@ cmdSetmem(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         return FALSE;
 
-    kilobytes = vshCommandOptUL(cmd, "kilobytes", NULL);
+    if (vshCommandOptUL(cmd, "kilobytes", &kilobytes) < 0) {
+        vshError(ctl, "%s", _("memory size has to be a number"));
+        return FALSE;
+    }
+
     if (kilobytes <= 0) {
         virDomainFree(dom);
         vshError(ctl, _("Invalid value of %lu for memory size"), kilobytes);
@@ -2950,7 +2948,7 @@ cmdSetmaxmem(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
     virDomainInfo info;
-    int kilobytes;
+    int kilobytes = 0;
     int ret = TRUE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
@@ -2959,7 +2957,11 @@ cmdSetmaxmem(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         return FALSE;
 
-    kilobytes = vshCommandOptInt(cmd, "kilobytes", &kilobytes);
+    if (vshCommandOptInt(cmd, "kilobytes", &kilobytes) < 0) {
+        vshError(ctl, "%s", _("memory size has to be a number"));
+        return FALSE;
+    }
+
     if (kilobytes <= 0) {
         virDomainFree(dom);
         vshError(ctl, _("Invalid value of %d for memory size"), kilobytes);
@@ -3018,7 +3020,8 @@ static int
 cmdMemtune(vshControl * ctl, const vshCmd * cmd)
 {
     virDomainPtr dom;
-    long long hard_limit, soft_limit, swap_hard_limit, min_guarantee;
+    long long hard_limit = 0, soft_limit = 0, swap_hard_limit = 0;
+    long long min_guarantee = 0;
     int nparams = 0;
     unsigned int i = 0;
     virMemoryParameterPtr params = NULL, temp = NULL;
@@ -3030,23 +3033,24 @@ cmdMemtune(vshControl * ctl, const vshCmd * cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         return FALSE;
 
-    hard_limit =
-        vshCommandOptLongLong(cmd, "hard-limit", NULL);
+    if (vshCommandOptLongLong(cmd, "hard-limit", &hard_limit) < 0 ||
+        vshCommandOptLongLong(cmd, "soft-limit", &soft_limit) < 0 ||
+        vshCommandOptLongLong(cmd, "swap-hard-limit", &swap_hard_limit) < 0 ||
+        vshCommandOptLongLong(cmd, "min-guarantee", &min_guarantee) < 0) {
+        vshError(ctl, "%s",
+                 _("Unable to parse integer parameter"));
+        goto cleanup;
+    }
+
     if (hard_limit)
         nparams++;
 
-    soft_limit =
-        vshCommandOptLongLong(cmd, "soft-limit", NULL);
     if (soft_limit)
         nparams++;
 
-    swap_hard_limit =
-        vshCommandOptLongLong(cmd, "swap-hard-limit", NULL);
     if (swap_hard_limit)
         nparams++;
 
-    min_guarantee =
-        vshCommandOptLongLong(cmd, "min-guarantee", NULL);
     if (min_guarantee)
         nparams++;
 
@@ -3290,8 +3294,8 @@ static int
 cmdDomXMLFromNative(vshControl *ctl, const vshCmd *cmd)
 {
     int ret = TRUE;
-    const char *format;
-    const char *configFile;
+    const char *format = NULL;
+    const char *configFile = NULL;
     char *configData;
     char *xmlData;
     int flags = 0;
@@ -3299,8 +3303,9 @@ cmdDomXMLFromNative(vshControl *ctl, const vshCmd *cmd)
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    format = vshCommandOptString(cmd, "format", NULL);
-    configFile = vshCommandOptString(cmd, "config", NULL);
+    if (vshCommandOptString(cmd, "format", &format) < 0 ||
+        vshCommandOptString(cmd, "config", &configFile) < 0)
+        return FALSE;
 
     if (virFileReadAll(configFile, 1024*1024, &configData) < 0)
         return FALSE;
@@ -3335,8 +3340,8 @@ static int
 cmdDomXMLToNative(vshControl *ctl, const vshCmd *cmd)
 {
     int ret = TRUE;
-    const char *format;
-    const char *xmlFile;
+    const char *format = NULL;
+    const char *xmlFile = NULL;
     char *configData;
     char *xmlData;
     int flags = 0;
@@ -3344,8 +3349,9 @@ cmdDomXMLToNative(vshControl *ctl, const vshCmd *cmd)
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    format = vshCommandOptString(cmd, "format", NULL);
-    xmlFile = vshCommandOptString(cmd, "xml", NULL);
+    if (vshCommandOptString(cmd, "format", &format) < 0
+        || vshCommandOptString(cmd, "xml", &xmlFile) < 0)
+        return FALSE;
 
     if (virFileReadAll(xmlFile, 1024*1024, &xmlData) < 0)
         return FALSE;
@@ -3500,10 +3506,10 @@ doMigrate (void *opaque)
 {
     char ret = '1';
     virDomainPtr dom = NULL;
-    const char *desturi;
-    const char *migrateuri;
-    const char *dname;
-    int flags = 0, found;
+    const char *desturi = NULL;
+    const char *migrateuri = NULL;
+    const char *dname = NULL;
+    int flags = 0;
     sigset_t sigmask, oldsigmask;
     vshCtrlData *data = opaque;
     vshControl *ctl = data->ctl;
@@ -3520,13 +3526,10 @@ doMigrate (void *opaque)
     if (!(dom = vshCommandOptDomain (ctl, cmd, NULL)))
         goto out;
 
-    desturi = vshCommandOptString (cmd, "desturi", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "desturi", &desturi) <= 0 ||
+        vshCommandOptString(cmd, "migrateuri", &migrateuri) < 0 ||
+        vshCommandOptString(cmd, "dname", &dname) < 0)
         goto out;
-
-    migrateuri = vshCommandOptString (cmd, "migrateuri", NULL);
-
-    dname = vshCommandOptString (cmd, "dname", NULL);
 
     if (vshCommandOptBool (cmd, "live"))
         flags |= VIR_MIGRATE_LIVE;
@@ -3616,14 +3619,13 @@ cmdMigrate (vshControl *ctl, const vshCmd *cmd)
     int ret = -1;
     virThread workerThread;
     struct pollfd pollfd;
-    int found;
     char retchar;
     struct sigaction sig_action;
     struct sigaction old_sig_action;
     virDomainJobInfo jobinfo;
     bool verbose = false;
     sigset_t sigmask, oldsigmask;
-    int timeout;
+    int timeout = 0;
     struct timeval start, curr;
     bool live_flag = false;
 
@@ -3637,8 +3639,7 @@ cmdMigrate (vshControl *ctl, const vshCmd *cmd)
 
     if (vshCommandOptBool (cmd, "live"))
         live_flag = TRUE;
-    timeout = vshCommandOptInt(cmd, "timeout", &found);
-    if (found) {
+    if (vshCommandOptInt(cmd, "timeout", &timeout) > 0) {
         if (! live_flag) {
             vshError(ctl, "%s", _("migrate: Unexpected timeout for offline migration"));
             goto cleanup;
@@ -3654,8 +3655,6 @@ cmdMigrate (vshControl *ctl, const vshCmd *cmd)
             vshError(ctl, "%s", _("migrate: Timeout is too big"));
             goto cleanup;
         }
-    } else {
-        timeout = 0;
     }
 
     if (pipe(p) < 0)
@@ -3762,8 +3761,7 @@ static int
 cmdMigrateSetMaxDowntime(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom = NULL;
-    long long downtime;
-    int found;
+    long long downtime = 0;
     int ret = FALSE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
@@ -3772,8 +3770,8 @@ cmdMigrateSetMaxDowntime(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         return FALSE;
 
-    downtime = vshCommandOptLongLong(cmd, "downtime", &found);
-    if (!found || downtime < 1) {
+    if (vshCommandOptLongLong(cmd, "downtime", &downtime) < 0 ||
+        downtime < 1) {
         vshError(ctl, "%s", _("migrate: Invalid downtime"));
         goto done;
     }
@@ -3855,16 +3853,14 @@ static int
 cmdNetworkCreate(vshControl *ctl, const vshCmd *cmd)
 {
     virNetworkPtr network;
-    const char *from;
-    int found;
+    const char *from = NULL;
     int ret = TRUE;
     char *buffer;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "file", &from) <= 0)
         return FALSE;
 
     if (virFileReadAll(from, VIRSH_MAX_XML_FILE, &buffer) < 0)
@@ -3903,16 +3899,14 @@ static int
 cmdNetworkDefine(vshControl *ctl, const vshCmd *cmd)
 {
     virNetworkPtr network;
-    const char *from;
-    int found;
+    const char *from = NULL;
     int ret = TRUE;
     char *buffer;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "file", &from) <= 0)
         return FALSE;
 
     if (virFileReadAll(from, VIRSH_MAX_XML_FILE, &buffer) < 0)
@@ -4676,16 +4670,14 @@ static int
 cmdInterfaceDefine(vshControl *ctl, const vshCmd *cmd)
 {
     virInterfacePtr iface;
-    const char *from;
-    int found;
+    const char *from = NULL;
     int ret = TRUE;
     char *buffer;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "file", &from) <= 0)
         return FALSE;
 
     if (virFileReadAll(from, VIRSH_MAX_XML_FILE, &buffer) < 0)
@@ -4838,16 +4830,14 @@ static int
 cmdNWFilterDefine(vshControl *ctl, const vshCmd *cmd)
 {
     virNWFilterPtr nwfilter;
-    const char *from;
-    int found;
+    const char *from = NULL;
     int ret = TRUE;
     char *buffer;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "file", &from) <= 0)
         return FALSE;
 
     if (virFileReadAll(from, VIRSH_MAX_XML_FILE, &buffer) < 0)
@@ -5179,16 +5169,14 @@ static int
 cmdPoolCreate(vshControl *ctl, const vshCmd *cmd)
 {
     virStoragePoolPtr pool;
-    const char *from;
-    int found;
+    const char *from = NULL;
     int ret = TRUE;
     char *buffer;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "file", &from) <= 0)
         return FALSE;
 
     if (virFileReadAll(from, VIRSH_MAX_XML_FILE, &buffer) < 0)
@@ -5231,18 +5219,15 @@ static int
 cmdNodeDeviceCreate(vshControl *ctl, const vshCmd *cmd)
 {
     virNodeDevicePtr dev = NULL;
-    const char *from;
-    int found = 0;
+    const char *from = NULL;
     int ret = TRUE;
     char *buffer;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found) {
+    if (vshCommandOptString(cmd, "file", &from) <= 0)
         return FALSE;
-    }
 
     if (virFileReadAll(from, VIRSH_MAX_XML_FILE, &buffer) < 0)
         return FALSE;
@@ -5284,17 +5269,14 @@ cmdNodeDeviceDestroy(vshControl *ctl, const vshCmd *cmd)
 {
     virNodeDevicePtr dev = NULL;
     int ret = TRUE;
-    int found = 0;
-    const char *name;
+    const char *name = NULL;
 
     if (!vshConnectionUsability(ctl, ctl->conn)) {
         return FALSE;
     }
 
-    name = vshCommandOptString(cmd, "name", &found);
-    if (!found) {
+    if (vshCommandOptString(cmd, "name", &name) <= 0)
         return FALSE;
-    }
 
     dev = virNodeDeviceLookupByName(ctl->conn, name);
 
@@ -5328,23 +5310,22 @@ static const vshCmdOptDef opts_pool_X_as[] = {
 
 static int buildPoolXML(const vshCmd *cmd, const char **retname, char **xml) {
 
-    int found;
-    const char *name, *type, *srcHost, *srcPath, *srcDev, *srcName, *srcFormat, *target;
+    const char *name = NULL, *type = NULL, *srcHost = NULL, *srcPath = NULL,
+               *srcDev = NULL, *srcName = NULL, *srcFormat = NULL, *target = NULL;
     virBuffer buf = VIR_BUFFER_INITIALIZER;
 
-    name = vshCommandOptString(cmd, "name", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "name", &name) <= 0)
         goto cleanup;
-    type = vshCommandOptString(cmd, "type", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "type", &type) <= 0)
         goto cleanup;
 
-    srcHost = vshCommandOptString(cmd, "source-host", &found);
-    srcPath = vshCommandOptString(cmd, "source-path", &found);
-    srcDev = vshCommandOptString(cmd, "source-dev", &found);
-    srcName = vshCommandOptString(cmd, "source-name", &found);
-    srcFormat = vshCommandOptString(cmd, "source-format", &found);
-    target = vshCommandOptString(cmd, "target", &found);
+    if (vshCommandOptString(cmd, "source-host", &srcHost) < 0 ||
+        vshCommandOptString(cmd, "source-path", &srcPath) < 0 ||
+        vshCommandOptString(cmd, "source-dev", &srcDev) < 0 ||
+        vshCommandOptString(cmd, "source-name", &srcName) < 0 ||
+        vshCommandOptString(cmd, "source-format", &srcFormat) < 0 ||
+        vshCommandOptString(cmd, "target", &target) < 0)
+        goto cleanup;
 
     virBufferVSprintf(&buf, "<pool type='%s'>\n", type);
     virBufferVSprintf(&buf, "  <name>%s</name>\n", name);
@@ -5445,16 +5426,14 @@ static int
 cmdPoolDefine(vshControl *ctl, const vshCmd *cmd)
 {
     virStoragePoolPtr pool;
-    const char *from;
-    int found;
+    const char *from = NULL;
     int ret = TRUE;
     char *buffer;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "file", &from) <= 0)
         return FALSE;
 
     if (virFileReadAll(from, VIRSH_MAX_XML_FILE, &buffer) < 0)
@@ -6143,30 +6122,28 @@ static const vshCmdOptDef opts_find_storage_pool_sources_as[] = {
 static int
 cmdPoolDiscoverSourcesAs(vshControl * ctl, const vshCmd * cmd ATTRIBUTE_UNUSED)
 {
-    const char *type, *host;
+    const char *type = NULL, *host = NULL;
     char *srcSpec = NULL;
     char *srcList;
-    const char *initiator;
-    int found;
+    const char *initiator = NULL;
 
-    type = vshCommandOptString(cmd, "type", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "type", &type) <= 0 ||
+        vshCommandOptString(cmd, "host", &host) < 0 ||
+        vshCommandOptString(cmd, "initiator", &initiator) < 0)
         return FALSE;
-    host = vshCommandOptString(cmd, "host", &found);
-    if (!found)
-        host = NULL;
-    initiator = vshCommandOptString(cmd, "initiator", &found);
-    if (!found)
-        initiator = NULL;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
     if (host) {
-        const char *port = vshCommandOptString(cmd, "port", &found);
-        if (!found)
-            port = NULL;
+        const char *port = NULL;
         virBuffer buf = VIR_BUFFER_INITIALIZER;
+
+        if (vshCommandOptString(cmd, "port", &port) < 0) {
+            vshError(ctl, "%s", _("missing argument"));
+            virBufferFreeAndReset(&buf);
+            return FALSE;
+        }
         virBufferAddLit(&buf, "<source>\n");
         virBufferVSprintf(&buf, "  <host name='%s'", host);
         if (port)
@@ -6218,16 +6195,14 @@ static const vshCmdOptDef opts_find_storage_pool_sources[] = {
 static int
 cmdPoolDiscoverSources(vshControl * ctl, const vshCmd * cmd ATTRIBUTE_UNUSED)
 {
-    const char *type, *srcSpecFile;
+    const char *type = NULL, *srcSpecFile = NULL;
     char *srcSpec = NULL, *srcList;
-    int found;
 
-    type = vshCommandOptString(cmd, "type", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "type", &type) <= 0)
         return FALSE;
-    srcSpecFile = vshCommandOptString(cmd, "srcSpec", &found);
-    if (!found)
-        srcSpecFile = NULL;
+
+    if (vshCommandOptString(cmd, "srcSpec", &srcSpecFile) < 0)
+        return FALSE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
@@ -6468,10 +6443,9 @@ cmdVolCreateAs(vshControl *ctl, const vshCmd *cmd)
 {
     virStoragePoolPtr pool;
     virStorageVolPtr vol;
-    int found;
     char *xml;
-    const char *name, *capacityStr, *allocationStr, *format;
-    const char *snapshotStrVol, *snapshotStrFormat;
+    const char *name, *capacityStr = NULL, *allocationStr = NULL, *format = NULL;
+    const char *snapshotStrVol = NULL, *snapshotStrFormat = NULL;
     unsigned long long capacity, allocation = 0;
     virBuffer buf = VIR_BUFFER_INITIALIZER;
 
@@ -6482,24 +6456,25 @@ cmdVolCreateAs(vshControl *ctl, const vshCmd *cmd)
                                      VSH_BYNAME)))
         return FALSE;
 
-    name = vshCommandOptString(cmd, "name", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "name", &name) <= 0)
         goto cleanup;
 
-    capacityStr = vshCommandOptString(cmd, "capacity", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "capacity", &capacityStr) <= 0)
         goto cleanup;
     if (cmdVolSize(capacityStr, &capacity) < 0)
         vshError(ctl, _("Malformed size %s"), capacityStr);
 
-    allocationStr = vshCommandOptString(cmd, "allocation", &found);
-    if (allocationStr &&
-        cmdVolSize(allocationStr, &allocation) < 0)
+    if ((vshCommandOptString(cmd, "allocation", &allocationStr) > 0) &&
+        (cmdVolSize(allocationStr, &allocation) < 0))
         vshError(ctl, _("Malformed size %s"), allocationStr);
 
-    format = vshCommandOptString(cmd, "format", &found);
-    snapshotStrVol = vshCommandOptString(cmd, "backing-vol", &found);
-    snapshotStrFormat = vshCommandOptString(cmd, "backing-vol-format", &found);
+    if (vshCommandOptString(cmd, "format", &format) < 0 ||
+        vshCommandOptString(cmd, "backing-vol", &snapshotStrVol) < 0 ||
+        vshCommandOptString(cmd, "backing-vol-format",
+                            &snapshotStrFormat) < 0) {
+        vshError(ctl, "%s", _("missing argument"));
+    }
+
 
     virBufferAddLit(&buf, "<volume>\n");
     virBufferVSprintf(&buf, "  <name>%s</name>\n", name);
@@ -6690,8 +6665,7 @@ cmdVolCreate(vshControl *ctl, const vshCmd *cmd)
 {
     virStoragePoolPtr pool;
     virStorageVolPtr vol;
-    const char *from;
-    int found;
+    const char *from = NULL;
     int ret = TRUE;
     char *buffer;
 
@@ -6702,8 +6676,7 @@ cmdVolCreate(vshControl *ctl, const vshCmd *cmd)
                                            VSH_BYNAME)))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found) {
+    if (vshCommandOptString(cmd, "file", &from) <= 0) {
         virStoragePoolFree(pool);
         return FALSE;
     }
@@ -6751,8 +6724,7 @@ cmdVolCreateFrom(vshControl *ctl, const vshCmd *cmd)
 {
     virStoragePoolPtr pool = NULL;
     virStorageVolPtr newvol = NULL, inputvol = NULL;
-    const char *from;
-    int found;
+    const char *from = NULL;
     int ret = FALSE;
     char *buffer = NULL;
 
@@ -6762,8 +6734,7 @@ cmdVolCreateFrom(vshControl *ctl, const vshCmd *cmd)
     if (!(pool = vshCommandOptPoolBy(ctl, cmd, "pool", NULL, VSH_BYNAME)))
         goto cleanup;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found) {
+    if (vshCommandOptString(cmd, "file", &from) <= 0) {
         goto cleanup;
     }
 
@@ -6850,10 +6821,9 @@ cmdVolClone(vshControl *ctl, const vshCmd *cmd)
 {
     virStoragePoolPtr origpool = NULL;
     virStorageVolPtr origvol = NULL, newvol = NULL;
-    const char *name;
+    const char *name = NULL;
     char *origxml = NULL;
     xmlChar *newxml = NULL;
-    int found;
     int ret = FALSE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
@@ -6868,8 +6838,7 @@ cmdVolClone(vshControl *ctl, const vshCmd *cmd)
         goto cleanup;
     }
 
-    name = vshCommandOptString(cmd, "newname", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "newname", &name) <= 0)
         goto cleanup;
 
     origxml = virStorageVolGetXMLDesc(origvol, 0);
@@ -7537,7 +7506,7 @@ static const vshCmdOptDef opts_secret_define[] = {
 static int
 cmdSecretDefine(vshControl *ctl, const vshCmd *cmd)
 {
-    const char *from;
+    const char *from = NULL;
     char *buffer;
     virSecretPtr res;
     char uuid[VIR_UUID_STRING_BUFLEN];
@@ -7545,8 +7514,7 @@ cmdSecretDefine(vshControl *ctl, const vshCmd *cmd)
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", NULL);
-    if (!from)
+    if (vshCommandOptString(cmd, "file", &from) <= 0)
         return FALSE;
 
     if (virFileReadAll(from, VIRSH_MAX_XML_FILE, &buffer) < 0)
@@ -7629,9 +7597,9 @@ cmdSecretSetValue(vshControl *ctl, const vshCmd *cmd)
 {
     virSecretPtr secret;
     size_t value_size;
-    const char *base64;
+    const char *base64 = NULL;
     char *value;
-    int found, res, ret = FALSE;
+    int res, ret = FALSE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
@@ -7640,8 +7608,7 @@ cmdSecretSetValue(vshControl *ctl, const vshCmd *cmd)
     if (secret == NULL)
         return FALSE;
 
-    base64 = vshCommandOptString(cmd, "base64", &found);
-    if (!base64)
+    if (vshCommandOptString(cmd, "base64", &base64) <= 0)
         goto cleanup;
 
     if (!base64_decode_alloc(base64, strlen(base64), &value, &value_size)) {
@@ -8006,16 +7973,15 @@ cmdNodeListDevicesPrint(vshControl *ctl,
 static int
 cmdNodeListDevices (vshControl *ctl, const vshCmd *cmd ATTRIBUTE_UNUSED)
 {
-    const char *cap;
+    const char *cap = NULL;
     char **devices;
-    int found, num_devices, i;
+    int num_devices, i;
     int tree = vshCommandOptBool(cmd, "tree");
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    cap = vshCommandOptString(cmd, "cap", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "cap", &cap) <= 0)
         cap = NULL;
 
     num_devices = virNodeNumOfDevices(ctl->conn, cap, 0);
@@ -8094,13 +8060,13 @@ static const vshCmdOptDef opts_node_device_dumpxml[] = {
 static int
 cmdNodeDeviceDumpXML (vshControl *ctl, const vshCmd *cmd)
 {
-    const char *name;
+    const char *name = NULL;
     virNodeDevicePtr device;
     char *xml;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
-    if (!(name = vshCommandOptString(cmd, "device", NULL)))
+    if (vshCommandOptString(cmd, "device", &name) <= 0)
         return FALSE;
     if (!(device = virNodeDeviceLookupByName(ctl->conn, name))) {
         vshError(ctl, "%s '%s'", _("Could not find matching device"), name);
@@ -8137,13 +8103,13 @@ static const vshCmdOptDef opts_node_device_dettach[] = {
 static int
 cmdNodeDeviceDettach (vshControl *ctl, const vshCmd *cmd)
 {
-    const char *name;
+    const char *name = NULL;
     virNodeDevicePtr device;
     int ret = TRUE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
-    if (!(name = vshCommandOptString(cmd, "device", NULL)))
+    if (vshCommandOptString(cmd, "device", &name) <= 0)
         return FALSE;
     if (!(device = virNodeDeviceLookupByName(ctl->conn, name))) {
         vshError(ctl, "%s '%s'", _("Could not find matching device"), name);
@@ -8178,13 +8144,13 @@ static const vshCmdOptDef opts_node_device_reattach[] = {
 static int
 cmdNodeDeviceReAttach (vshControl *ctl, const vshCmd *cmd)
 {
-    const char *name;
+    const char *name = NULL;
     virNodeDevicePtr device;
     int ret = TRUE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
-    if (!(name = vshCommandOptString(cmd, "device", NULL)))
+    if (vshCommandOptString(cmd, "device", &name) <= 0)
         return FALSE;
     if (!(device = virNodeDeviceLookupByName(ctl->conn, name))) {
         vshError(ctl, "%s '%s'", _("Could not find matching device"), name);
@@ -8219,13 +8185,13 @@ static const vshCmdOptDef opts_node_device_reset[] = {
 static int
 cmdNodeDeviceReset (vshControl *ctl, const vshCmd *cmd)
 {
-    const char *name;
+    const char *name = NULL;
     virNodeDevicePtr device;
     int ret = TRUE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
-    if (!(name = vshCommandOptString(cmd, "device", NULL)))
+    if (vshCommandOptString(cmd, "device", &name) <= 0)
         return FALSE;
     if (!(device = virNodeDeviceLookupByName(ctl->conn, name))) {
         vshError(ctl, "%s '%s'", _("Could not find matching device"), name);
@@ -8456,10 +8422,9 @@ static int
 cmdAttachDevice(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
-    const char *from;
+    const char *from = NULL;
     char *buffer;
     int ret = TRUE;
-    int found;
     unsigned int flags;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
@@ -8468,8 +8433,7 @@ cmdAttachDevice(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found) {
+    if (vshCommandOptString(cmd, "file", &from) <= 0) {
         virDomainFree(dom);
         return FALSE;
     }
@@ -8523,10 +8487,9 @@ static int
 cmdDetachDevice(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
-    const char *from;
+    const char *from = NULL;
     char *buffer;
     int ret = TRUE;
-    int found;
     unsigned int flags;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
@@ -8535,8 +8498,7 @@ cmdDetachDevice(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found) {
+    if (vshCommandOptString(cmd, "file", &from) <= 0) {
         virDomainFree(dom);
         return FALSE;
     }
@@ -8591,10 +8553,9 @@ static int
 cmdUpdateDevice(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
-    const char *from;
+    const char *from = NULL;
     char *buffer;
     int ret = TRUE;
-    int found;
     unsigned int flags;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
@@ -8603,8 +8564,7 @@ cmdUpdateDevice(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found) {
+    if (vshCommandOptString(cmd, "file", &from) <= 0) {
         virDomainFree(dom);
         return FALSE;
     }
@@ -8667,7 +8627,8 @@ static int
 cmdAttachInterface(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom = NULL;
-    const char *mac, *target, *script, *type, *source, *model;
+    const char *mac = NULL, *target = NULL, *script = NULL,
+                *type = NULL, *source = NULL, *model = NULL;
     int typ, ret = FALSE;
     unsigned int flags;
     virBuffer buf = VIR_BUFFER_INITIALIZER;
@@ -8679,14 +8640,15 @@ cmdAttachInterface(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         goto cleanup;
 
-    if (!(type = vshCommandOptString(cmd, "type", NULL)))
+    if (vshCommandOptString(cmd, "type", &type) <= 0)
         goto cleanup;
 
-    source = vshCommandOptString(cmd, "source", NULL);
-    target = vshCommandOptString(cmd, "target", NULL);
-    mac = vshCommandOptString(cmd, "mac", NULL);
-    script = vshCommandOptString(cmd, "script", NULL);
-    model = vshCommandOptString(cmd, "model", NULL);
+    if (vshCommandOptString(cmd, "source", &source) < 0 ||
+        vshCommandOptString(cmd, "target", &target) < 0 ||
+        vshCommandOptString(cmd, "mac", &mac) < 0 ||
+        vshCommandOptString(cmd, "script", &script) < 0 ||
+        vshCommandOptString(cmd, "model", &model) < 0)
+        goto cleanup;
 
     /* check interface type */
     if (STREQ(type, "network")) {
@@ -8777,7 +8739,7 @@ cmdDetachInterface(vshControl *ctl, const vshCmd *cmd)
     xmlXPathContextPtr ctxt = NULL;
     xmlNodePtr cur = NULL;
     xmlBufferPtr xml_buf = NULL;
-    const char *mac =NULL, *type;
+    const char *mac =NULL, *type = NULL;
     char *doc;
     char buf[64];
     int i = 0, diff_mac, ret = FALSE;
@@ -8789,10 +8751,11 @@ cmdDetachInterface(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         goto cleanup;
 
-    if (!(type = vshCommandOptString(cmd, "type", NULL)))
+    if (vshCommandOptString(cmd, "type", &type) <= 0)
         goto cleanup;
 
-    mac = vshCommandOptString(cmd, "mac", NULL);
+    if (vshCommandOptString(cmd, "mac", &mac) < 0)
+        goto cleanup;
 
     doc = virDomainGetXMLDesc(dom, 0);
     if (!doc)
@@ -8917,10 +8880,11 @@ static int
 cmdAttachDisk(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom = NULL;
-    const char *source, *target, *driver, *subdriver, *type, *mode;
+    const char *source = NULL, *target = NULL, *driver = NULL,
+                *subdriver = NULL, *type = NULL, *mode = NULL;
     int isFile = 0, ret = FALSE;
     unsigned int flags;
-    const char *stype;
+    const char *stype = NULL;
     virBuffer buf = VIR_BUFFER_INITIALIZER;
     char *xml;
 
@@ -8930,17 +8894,19 @@ cmdAttachDisk(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         goto cleanup;
 
-    if (!(source = vshCommandOptString(cmd, "source", NULL)))
+    if (vshCommandOptString(cmd, "source", &source) <= 0)
         goto cleanup;
 
-    if (!(target = vshCommandOptString(cmd, "target", NULL)))
+    if (vshCommandOptString(cmd, "target", &target) <= 0)
         goto cleanup;
 
-    driver = vshCommandOptString(cmd, "driver", NULL);
-    subdriver = vshCommandOptString(cmd, "subdriver", NULL);
-    type = vshCommandOptString(cmd, "type", NULL);
-    mode = vshCommandOptString(cmd, "mode", NULL);
-    stype = vshCommandOptString(cmd, "sourcetype", NULL);
+    if (vshCommandOptString(cmd, "driver", &driver) < 0 ||
+        vshCommandOptString(cmd, "subdriver", &subdriver) < 0 ||
+        vshCommandOptString(cmd, "type", &type) < 0 ||
+        vshCommandOptString(cmd, "mode", &mode) < 0 ||
+        vshCommandOptString(cmd, "sourcetype", &stype) < 0) {
+        goto cleanup;
+    }
 
     if (!stype) {
         if (driver && (STREQ(driver, "file") || STREQ(driver, "tap")))
@@ -9045,7 +9011,7 @@ cmdDetachDisk(vshControl *ctl, const vshCmd *cmd)
     xmlNodePtr cur = NULL;
     xmlBufferPtr xml_buf = NULL;
     virDomainPtr dom = NULL;
-    const char *target;
+    const char *target = NULL;
     char *doc;
     int i = 0, diff_tgt, ret = FALSE;
     unsigned int flags;
@@ -9056,7 +9022,7 @@ cmdDetachDisk(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         goto cleanup;
 
-    if (!(target = vshCommandOptString(cmd, "target", NULL)))
+    if (vshCommandOptString(cmd, "target", &target) <= 0)
         goto cleanup;
 
     doc = virDomainGetXMLDesc(dom, 0);
@@ -9163,8 +9129,7 @@ static const vshCmdOptDef opts_cpu_compare[] = {
 static int
 cmdCPUCompare(vshControl *ctl, const vshCmd *cmd)
 {
-    const char *from;
-    int found;
+    const char *from = NULL;
     int ret = TRUE;
     char *buffer;
     int result;
@@ -9172,8 +9137,7 @@ cmdCPUCompare(vshControl *ctl, const vshCmd *cmd)
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "file", &from) <= 0)
         return FALSE;
 
     if (virFileReadAll(from, VIRSH_MAX_XML_FILE, &buffer) < 0)
@@ -9227,8 +9191,7 @@ static const vshCmdOptDef opts_cpu_baseline[] = {
 static int
 cmdCPUBaseline(vshControl *ctl, const vshCmd *cmd)
 {
-    const char *from;
-    int found;
+    const char *from = NULL;
     int ret = TRUE;
     char *buffer;
     char *result = NULL;
@@ -9245,8 +9208,7 @@ cmdCPUBaseline(vshControl *ctl, const vshCmd *cmd)
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
 
-    from = vshCommandOptString(cmd, "file", &found);
-    if (!found)
+    if (vshCommandOptString(cmd, "file", &from) <= 0)
         return FALSE;
 
     if (virFileReadAll(from, VIRSH_MAX_XML_FILE, &buffer) < 0)
@@ -9456,9 +9418,8 @@ static const vshCmdOptDef opts_cd[] = {
 static int
 cmdCd(vshControl *ctl, const vshCmd *cmd ATTRIBUTE_UNUSED)
 {
-    const char *dir;
+    const char *dir = NULL;
     char *dir_malloced = NULL;
-    int found;
     int ret = TRUE;
 
     if (!ctl->imode) {
@@ -9466,8 +9427,7 @@ cmdCd(vshControl *ctl, const vshCmd *cmd ATTRIBUTE_UNUSED)
         return FALSE;
     }
 
-    dir = vshCommandOptString(cmd, "dir", &found);
-    if (!found) {
+    if (vshCommandOptString(cmd, "dir", &dir) <= 0) {
         uid_t uid = geteuid();
         dir = dir_malloced = virGetUserDirectory(uid);
     }
@@ -9768,7 +9728,7 @@ cmdSnapshotCreate(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom = NULL;
     int ret = FALSE;
-    const char *from;
+    const char *from = NULL;
     char *buffer = NULL;
     virDomainSnapshotPtr snapshot = NULL;
     xmlDocPtr xml = NULL;
@@ -9783,8 +9743,7 @@ cmdSnapshotCreate(vshControl *ctl, const vshCmd *cmd)
     if (dom == NULL)
         goto cleanup;
 
-    from = vshCommandOptString(cmd, "xmlfile", NULL);
-    if (from == NULL)
+    if (vshCommandOptString(cmd, "xmlfile", &from) <= 0)
         buffer = vshStrdup(ctl, "<domainsnapshot/>");
     else {
         if (virFileReadAll(from, VIRSH_MAX_XML_FILE, &buffer) < 0) {
@@ -10041,7 +10000,7 @@ cmdSnapshotDumpXML(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom = NULL;
     int ret = FALSE;
-    const char *name;
+    const char *name = NULL;
     virDomainSnapshotPtr snapshot = NULL;
     char *xml = NULL;
 
@@ -10052,8 +10011,7 @@ cmdSnapshotDumpXML(vshControl *ctl, const vshCmd *cmd)
     if (dom == NULL)
         goto cleanup;
 
-    name = vshCommandOptString(cmd, "snapshotname", NULL);
-    if (name == NULL)
+    if (vshCommandOptString(cmd, "snapshotname", &name) <= 0)
         goto cleanup;
 
     snapshot = virDomainSnapshotLookupByName(dom, name, 0);
@@ -10098,7 +10056,7 @@ cmdDomainSnapshotRevert(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom = NULL;
     int ret = FALSE;
-    const char *name;
+    const char *name = NULL;
     virDomainSnapshotPtr snapshot = NULL;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
@@ -10108,8 +10066,7 @@ cmdDomainSnapshotRevert(vshControl *ctl, const vshCmd *cmd)
     if (dom == NULL)
         goto cleanup;
 
-    name = vshCommandOptString(cmd, "snapshotname", NULL);
-    if (name == NULL)
+    if (vshCommandOptString(cmd, "snapshotname", &name) <= 0)
         goto cleanup;
 
     snapshot = virDomainSnapshotLookupByName(dom, name, 0);
@@ -10151,7 +10108,7 @@ cmdSnapshotDelete(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom = NULL;
     int ret = FALSE;
-    const char *name;
+    const char *name = NULL;
     virDomainSnapshotPtr snapshot = NULL;
     unsigned int flags = 0;
 
@@ -10162,8 +10119,7 @@ cmdSnapshotDelete(vshControl *ctl, const vshCmd *cmd)
     if (dom == NULL)
         goto cleanup;
 
-    name = vshCommandOptString(cmd, "snapshotname", NULL);
-    if (name == NULL)
+    if (vshCommandOptString(cmd, "snapshotname", &name) <= 0)
         goto cleanup;
 
     if (vshCommandOptBool(cmd, "children"))
@@ -10208,7 +10164,7 @@ cmdQemuMonitorCommand(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom = NULL;
     int ret = FALSE;
-    const char *monitor_cmd;
+    const char *monitor_cmd = NULL;
     char *result = NULL;
     unsigned int flags = 0;
 
@@ -10219,8 +10175,7 @@ cmdQemuMonitorCommand(vshControl *ctl, const vshCmd *cmd)
     if (dom == NULL)
         goto cleanup;
 
-    monitor_cmd = vshCommandOptString(cmd, "cmd", NULL);
-    if (monitor_cmd == NULL) {
+    if (vshCommandOptString(cmd, "cmd", &monitor_cmd) <= 0) {
         vshError(ctl, "%s", _("missing monitor command"));
         goto cleanup;
     }
@@ -10735,83 +10690,104 @@ vshCommandOpt(const vshCmd *cmd, const char *name)
 }
 
 /*
- * Returns option as INT
+ * @cmd command reference
+ * @name option name
+ * @value result
+ *
+ * Convert option to int
+ * Return value:
+ * >0 if option found and valid (@value updated)
+ * 0 in case option not found (@value untouched)
+ * <0 in all other cases (@value untouched)
  */
 static int
-vshCommandOptInt(const vshCmd *cmd, const char *name, int *found)
+vshCommandOptInt(const vshCmd *cmd, const char *name, int *value)
 {
     vshCmdOpt *arg = vshCommandOpt(cmd, name);
-    int res = 0, num_found = FALSE;
+    int ret = 0, num;
     char *end_p = NULL;
 
     if ((arg != NULL) && (arg->data != NULL)) {
-        res = strtol(arg->data, &end_p, 10);
-        if ((arg->data == end_p) || (*end_p!= 0))
-            num_found = FALSE;
-        else
-            num_found = TRUE;
+        num = strtol(arg->data, &end_p, 10);
+        ret = -1;
+        if ((arg->data != end_p) && (*end_p == 0)) {
+            *value = num;
+            ret = 1;
+        }
     }
-    if (found)
-        *found = num_found;
-    return res;
+    return ret;
 }
 
-static unsigned long
-vshCommandOptUL(const vshCmd *cmd, const char *name, int *found)
+/*
+ * Convert option to unsigned long
+ * See vshCommandOptInt()
+ */
+static int
+vshCommandOptUL(const vshCmd *cmd, const char *name, unsigned long *value)
 {
     vshCmdOpt *arg = vshCommandOpt(cmd, name);
-    unsigned long res = 0;
-    int num_found = FALSE;
+    int ret = 0;
+    unsigned long num;
     char *end_p = NULL;
 
     if ((arg != NULL) && (arg->data != NULL)) {
-        res = strtoul(arg->data, &end_p, 10);
-        if ((arg->data == end_p) || (*end_p!= 0))
-            num_found = FALSE;
-        else
-            num_found = TRUE;
+        num = strtoul(arg->data, &end_p, 10);
+        ret = -1;
+        if ((arg->data != end_p) && (*end_p == 0)) {
+            *value = num;
+            ret = 1;
+        }
     }
-    if (found)
-        *found = num_found;
-    return res;
+    return ret;
 }
 
 /*
  * Returns option as STRING
+ * See vshCommandOptInt()
  */
-static const char *
-vshCommandOptString(const vshCmd *cmd, const char *name, int *found)
+static int
+vshCommandOptString(const vshCmd *cmd, const char *name, const char **value)
 {
     vshCmdOpt *arg = vshCommandOpt(cmd, name);
+    int ret = 0;
 
-    if (found)
-        *found = arg ? TRUE : FALSE;
+    if (arg && arg->data) {
+        ret = -1;
+        if (*arg->data) {
+            if (value) {
+                *value = arg->data;
+                ret = 1;
+            }
+        } else if (arg->def && ((arg->def->flag) & VSH_OFLAG_REQ)) {
+            vshError(NULL, _("Missing required option '%s'"), name);
+        }
+    }
 
-    if (arg && arg->data && *arg->data)
-        return arg->data;
-
-    if (arg && arg->def && ((arg->def->flag) & VSH_OFLAG_REQ))
-        vshError(NULL, _("Missing required option '%s'"), name);
-
-    return NULL;
+    return ret;
 }
 
 /*
  * Returns option as long long
+ * See vshCommandOptInt()
  */
-static long long
-vshCommandOptLongLong(const vshCmd *cmd, const char *name, int *found)
+static int
+vshCommandOptLongLong(const vshCmd *cmd, const char *name,
+                      long long *value)
 {
     vshCmdOpt *arg = vshCommandOpt(cmd, name);
-    int num_found = FALSE;
-    long long res = 0;
+    int ret = 0;
+    long long num;
     char *end_p = NULL;
 
-    if ((arg != NULL) && (arg->data != NULL))
-        num_found = !virStrToLong_ll(arg->data, &end_p, 10, &res);
-    if (found)
-        *found = num_found;
-    return res;
+    if ((arg != NULL) && (arg->data != NULL)) {
+        num = strtoll(arg->data, &end_p, 10);
+        ret = -1;
+        if ((arg->data != end_p) && (*end_p == 0)) {
+            *value = num;
+            ret = 1;
+        }
+    }
+    return ret;
 }
 
 /*
@@ -10872,13 +10848,13 @@ vshCommandOptDomainBy(vshControl *ctl, const vshCmd *cmd,
                       const char **name, int flag)
 {
     virDomainPtr dom = NULL;
-    const char *n;
+    const char *n = NULL;
     int id;
     const char *optname = "domain";
     if (!cmd_has_option (ctl, cmd, optname))
         return NULL;
 
-    if (!(n = vshCommandOptString(cmd, optname, NULL)))
+    if (vshCommandOptString(cmd, optname, &n) <= 0)
         return NULL;
 
     vshDebug(ctl, 5, "%s: found option <%s>: %s\n",
@@ -10919,12 +10895,12 @@ vshCommandOptNetworkBy(vshControl *ctl, const vshCmd *cmd,
                        const char **name, int flag)
 {
     virNetworkPtr network = NULL;
-    const char *n;
+    const char *n = NULL;
     const char *optname = "network";
     if (!cmd_has_option (ctl, cmd, optname))
         return NULL;
 
-    if (!(n = vshCommandOptString(cmd, optname, NULL)))
+    if (vshCommandOptString(cmd, optname, &n) <= 0)
         return NULL;
 
     vshDebug(ctl, 5, "%s: found option <%s>: %s\n",
@@ -10958,12 +10934,12 @@ vshCommandOptNWFilterBy(vshControl *ctl, const vshCmd *cmd,
                         const char **name, int flag)
 {
     virNWFilterPtr nwfilter = NULL;
-    const char *n;
+    const char *n = NULL;
     const char *optname = "nwfilter";
     if (!cmd_has_option (ctl, cmd, optname))
         return NULL;
 
-    if (!(n = vshCommandOptString(cmd, optname, NULL)))
+    if (vshCommandOptString(cmd, optname, &n) <= 0)
         return NULL;
 
     vshDebug(ctl, 5, "%s: found option <%s>: %s\n",
@@ -10996,12 +10972,12 @@ vshCommandOptInterfaceBy(vshControl *ctl, const vshCmd *cmd,
                          const char **name, int flag)
 {
     virInterfacePtr iface = NULL;
-    const char *n;
+    const char *n = NULL;
     const char *optname = "interface";
     if (!cmd_has_option (ctl, cmd, optname))
         return NULL;
 
-    if (!(n = vshCommandOptString(cmd, optname, NULL)))
+    if (vshCommandOptString(cmd, optname, &n) <= 0)
         return NULL;
 
     vshDebug(ctl, 5, "%s: found option <%s>: %s\n",
@@ -11034,9 +11010,9 @@ vshCommandOptPoolBy(vshControl *ctl, const vshCmd *cmd, const char *optname,
                     const char **name, int flag)
 {
     virStoragePoolPtr pool = NULL;
-    const char *n;
+    const char *n = NULL;
 
-    if (!(n = vshCommandOptString(cmd, optname, NULL)))
+    if (vshCommandOptString(cmd, optname, &n) <= 0)
         return NULL;
 
     vshDebug(ctl, 5, "%s: found option <%s>: %s\n",
@@ -11072,13 +11048,12 @@ vshCommandOptVolBy(vshControl *ctl, const vshCmd *cmd,
 {
     virStorageVolPtr vol = NULL;
     virStoragePoolPtr pool = NULL;
-    const char *n, *p;
-    int found;
+    const char *n = NULL, *p = NULL;
 
-    if (!(n = vshCommandOptString(cmd, optname, NULL)))
+    if (vshCommandOptString(cmd, optname, &n) <= 0)
         return NULL;
 
-    if (!(p = vshCommandOptString(cmd, pooloptname, &found)) && found)
+    if (vshCommandOptString(cmd, pooloptname, &p) < 0)
         return NULL;
 
     if (p)
@@ -11122,14 +11097,13 @@ static virSecretPtr
 vshCommandOptSecret(vshControl *ctl, const vshCmd *cmd, const char **name)
 {
     virSecretPtr secret = NULL;
-    const char *n;
+    const char *n = NULL;
     const char *optname = "secret";
 
     if (!cmd_has_option (ctl, cmd, optname))
         return NULL;
 
-    n = vshCommandOptString(cmd, optname, NULL);
-    if (n == NULL)
+    if (vshCommandOptString(cmd, optname, &n) <= 0)
         return NULL;
 
     vshDebug(ctl, 5, "%s: found option <%s>: %s\n", cmd->def->name, optname, n);

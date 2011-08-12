@@ -1094,6 +1094,29 @@ int qemuMonitorSetVNCPassword(qemuMonitorPtr mon,
         ret = qemuMonitorJSONSetVNCPassword(mon, password);
     else
         ret = qemuMonitorTextSetVNCPassword(mon, password);
+
+    return ret;
+}
+
+
+/* Returns -2 if not supported with this monitor connection */
+int qemuMonitorSetGraphicsPassword(qemuMonitorPtr mon,
+                                   int type,
+                                   const char *password,
+                                   unsigned int expiry)
+{
+    int ret;
+    DEBUG("mon=%p, fd=%d type=%d, password=%p, expiry=%u",
+          mon, mon->fd, type, password, expiry);
+
+    if (!password)
+        password = "";
+
+    if (mon->json)
+        ret = qemuMonitorJSONSetGraphicsPassword(mon, type, password, expiry);
+    else {
+        ret = -2;
+    }
     return ret;
 }
 

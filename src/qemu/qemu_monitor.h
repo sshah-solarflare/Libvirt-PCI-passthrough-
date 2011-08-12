@@ -195,6 +195,11 @@ int qemuMonitorGetBlockExtent(qemuMonitorPtr mon,
 
 int qemuMonitorSetVNCPassword(qemuMonitorPtr mon,
                               const char *password);
+int qemuMonitorSetGraphicsPassword(qemuMonitorPtr mon,
+                                   int type,
+                                   const char *password,
+                                   unsigned int expiry);
+
 int qemuMonitorSetBalloon(qemuMonitorPtr mon,
                           unsigned long newmem);
 int qemuMonitorSetCPU(qemuMonitorPtr mon, int cpu, int online);

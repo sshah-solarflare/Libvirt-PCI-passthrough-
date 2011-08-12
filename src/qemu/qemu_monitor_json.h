@@ -63,6 +63,10 @@ int qemuMonitorJSONGetBlockExtent(qemuMonitorPtr mon,
 
 int qemuMonitorJSONSetVNCPassword(qemuMonitorPtr mon,
                                   const char *password);
+int qemuMonitorJSONSetGraphicsPassword(qemuMonitorPtr mon,
+                                       int type,
+                                       const char *password,
+                                       unsigned int expiry);
 int qemuMonitorJSONSetBalloon(qemuMonitorPtr mon,
                               unsigned long newmem);
 int qemuMonitorJSONSetCPU(qemuMonitorPtr mon, int cpu, int online);

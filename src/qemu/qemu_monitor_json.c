@@ -1265,6 +1265,39 @@ int qemuMonitorJSONSetVNCPassword(qemuMonitorPtr mon,
     return ret;
 }
 
+/* Returns -1 on error, -2 if not supported */
+int qemuMonitorJSONSetGraphicsPassword(qemuMonitorPtr mon,
+                                       int type,
+                                       const char *password,
+                                       unsigned int expiry)
+{
+    int ret = -1;
+    virJSONValuePtr cmd = qemuMonitorJSONMakeCommand("__com.redhat_set_password",
+                                                     "s:protocol", type == VIR_DOMAIN_GRAPHICS_TYPE_VNC ? "vnc" : "spice",
+                                                     "s:password", password,
+                                                     "i:expiration", (int)expiry,
+                                                     NULL);
+    virJSONValuePtr reply = NULL;
+    if (!cmd)
+        return -1;
+
+    ret = qemuMonitorJSONCommand(mon, cmd, &reply);
+
+    if (ret == 0) {
+        if (qemuMonitorJSONHasError(reply, "CommandNotFound")) {
+            ret = -2;
+            goto cleanup;
+        }
+
+        ret = qemuMonitorJSONCheckError(cmd, reply);
+    }
+
+cleanup:
+    virJSONValueFree(cmd);
+    virJSONValueFree(reply);
+    return ret;
+}
+
 /*
  * Returns: 0 if balloon not supported, +1 if balloon adjust worked
  * or -1 on failure

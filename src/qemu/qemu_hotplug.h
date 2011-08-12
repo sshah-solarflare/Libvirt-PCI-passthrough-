@@ -67,6 +67,11 @@ int qemuDomainAttachHostDevice(struct qemud_driver *driver,
                                virDomainObjPtr vm,
                                virDomainHostdevDefPtr hostdev,
                                unsigned long long qemuCmdFlags);
+int qemuInitGraphicsPasswords(struct qemud_driver *driver,
+                              virDomainObjPtr vm,
+                              int type,
+                              virDomainGraphicsAuthDefPtr auth,
+                              const char *defaultPasswd);
 int qemuDomainChangeGraphics(struct qemud_driver *driver,
                              virDomainObjPtr vm,
                              virDomainGraphicsDefPtr dev);

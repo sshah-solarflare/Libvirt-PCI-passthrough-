@@ -1047,6 +1047,14 @@
               </choice>
             </attribute>
           </optional>
+          <optional>
+            <attribute name="txmode">
+              <choice>
+                <value>iothread</value>
+                <value>timer</value>
+              </choice>
+            </attribute>
+          </optional>
           <empty/>
         </element>
       </optional>

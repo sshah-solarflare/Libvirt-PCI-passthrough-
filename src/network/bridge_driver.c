@@ -1609,7 +1609,7 @@ networkStartNetworkDaemon(struct network_driver *driver,
     bool v4present = false, v6present = false;
     virErrorPtr save_err = NULL;
     virNetworkIpDefPtr ipdef;
-    char *macTapIfName;
+    char *macTapIfName = NULL;
 
     if (virNetworkObjIsActive(network)) {
         networkReportError(VIR_ERR_INTERNAL_ERROR,
@@ -1650,7 +1650,6 @@ networkStartNetworkDaemon(struct network_driver *driver,
             VIR_FREE(macTapIfName);
             goto err0;
         }
-        VIR_FREE(macTapIfName);
     }
 
     /* Set bridge options */
@@ -1724,6 +1723,8 @@ networkStartNetworkDaemon(struct network_driver *driver,
         goto err5;
     }
 
+    VIR_FREE(macTapIfName);
+    VIR_INFO(_("Starting up network '%s'"), network->def->name);
     network->active = 1;
 
     return 0;
@@ -1770,6 +1771,7 @@ networkStartNetworkDaemon(struct network_driver *driver,
                  macTapIfName, network->def->bridge,
                  virStrerror(err, ebuf, sizeof ebuf));
     }
+    VIR_FREE(macTapIfName);
 
  err0:
     if (!save_err)

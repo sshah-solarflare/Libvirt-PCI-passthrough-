@@ -8529,6 +8529,12 @@ cmdDetachInterface(vshControl *ctl, const vshCmd *cmd)
         goto cleanup;
     }
 
+    if ((!mac) && (obj->nodesetval->nodeNr > 1)) {
+        vshError(ctl, _("Domain has %d interfaces. Please specify which one "
+                        "to detach using --mac"), obj->nodesetval->nodeNr);
+        goto cleanup;
+    }
+
     if (!mac)
         goto hit;
 

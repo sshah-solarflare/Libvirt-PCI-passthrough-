@@ -360,7 +360,7 @@ int
 qemuMonitorTextStopCPUs(qemuMonitorPtr mon) {
     char *info;
 
-    if (qemuMonitorCommand(mon, "stop", &info) < 0) {
+    if (qemuMonitorHMPCommand(mon, "stop", &info) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("cannot stop CPU execution"));
         return -1;
@@ -373,7 +373,7 @@ qemuMonitorTextStopCPUs(qemuMonitorPtr mon) {
 int qemuMonitorTextSystemPowerdown(qemuMonitorPtr mon) {
     char *info;
 
-    if (qemuMonitorCommand(mon, "system_powerdown", &info) < 0) {
+    if (qemuMonitorHMPCommand(mon, "system_powerdown", &info) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("system shutdown operation failed"));
         return -1;
@@ -392,7 +392,7 @@ int qemuMonitorTextGetCPUInfo(qemuMonitorPtr mon,
     pid_t *cpupids = NULL;
     size_t ncpupids = 0;
 
-    if (qemuMonitorCommand(mon, "info cpus", &qemucpus) < 0) {
+    if (qemuMonitorHMPCommand(mon, "info cpus", &qemucpus) < 0) {
         qemuReportError(VIR_ERR_INTERNAL_ERROR,
                         "%s", _("cannot run monitor command to fetch CPU thread info"));
         return -1;
@@ -544,7 +544,7 @@ int qemuMonitorTextGetBalloonInfo(qemuMonitorPtr mon,
     int ret = -1;
     char *offset;
 
-    if (qemuMonitorCommand(mon, "info balloon", &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, "info balloon", &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("could not query memory balloon allocation"));
         return -1;
@@ -581,7 +581,7 @@ int qemuMonitorTextGetMemoryStats(qemuMonitorPtr mon,
     int ret = 0;
     char *offset;
 
-    if (qemuMonitorCommand(mon, "info balloon", &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, "info balloon", &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("could not query memory balloon statistics"));
         return -1;
@@ -613,7 +613,7 @@ int qemuMonitorTextGetBlockStatsInfo(qemuMonitorPtr mon,
     const char *p, *eol;
     int devnamelen = strlen(devname);
 
-    if (qemuMonitorCommand (mon, "info blockstats", &info) < 0) {
+    if (qemuMonitorHMPCommand (mon, "info blockstats", &info) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("'info blockstats' command failed"));
         goto cleanup;
@@ -782,7 +782,7 @@ int qemuMonitorTextSetBalloon(qemuMonitorPtr mon,
         return -1;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("could not balloon memory allocation"));
         VIR_FREE(cmd);
@@ -819,7 +819,7 @@ int qemuMonitorTextSetCPU(qemuMonitorPtr mon, int cpu, int online)
         return -1;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("could not change CPU online status"));
         VIR_FREE(cmd);
@@ -854,7 +854,7 @@ int qemuMonitorTextEjectMedia(qemuMonitorPtr mon,
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("could not eject media on %s"), devname);
         goto cleanup;
@@ -898,7 +898,7 @@ int qemuMonitorTextChangeMedia(qemuMonitorPtr mon,
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("could not change media on %s"), devname);
         goto cleanup;
@@ -950,7 +950,7 @@ static int qemuMonitorTextSaveMemory(qemuMonitorPtr mon,
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("could not save memory region to '%s'"), path);
         goto cleanup;
@@ -997,7 +997,7 @@ int qemuMonitorTextSetMigrationSpeed(qemuMonitorPtr mon,
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &info) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &info) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("could not restrict migration speed"));
         goto cleanup;
@@ -1024,7 +1024,7 @@ int qemuMonitorTextSetMigrationDowntime(qemuMonitorPtr mon,
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &info) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &info) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("could not set maximum migration downtime"));
         goto cleanup;
@@ -1059,7 +1059,7 @@ int qemuMonitorTextGetMigrationStatus(qemuMonitorPtr mon,
     *remaining = 0;
     *total = 0;
 
-    if (qemuMonitorCommand(mon, "info migrate", &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, "info migrate", &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("cannot query migration status"));
         return -1;
@@ -1165,7 +1165,7 @@ static int qemuMonitorTextMigrate(qemuMonitorPtr mon,
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &info) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &info) < 0) {
         qemuReportError(VIR_ERR_INTERNAL_ERROR,
                         _("unable to start migration to %s"), dest);
         goto cleanup;
@@ -1315,7 +1315,7 @@ int qemuMonitorTextMigrateCancel(qemuMonitorPtr mon)
 {
     char *info = NULL;
 
-    if (qemuMonitorCommand(mon, "migrate_cancel", &info) < 0) {
+    if (qemuMonitorHMPCommand(mon, "migrate_cancel", &info) < 0) {
         qemuReportError(VIR_ERR_INTERNAL_ERROR,
                         "%s", _("cannot run monitor command to cancel migration"));
         return -1;
@@ -1347,7 +1347,7 @@ int qemuMonitorTextGraphicsRelocate(qemuMonitorPtr mon,
         return -1;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &info) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &info) < 0) {
         VIR_FREE(cmd);
         qemuReportError(VIR_ERR_INTERNAL_ERROR,
                         "%s", _("cannot run monitor command to relocate graphics client"));
@@ -1378,7 +1378,7 @@ int qemuMonitorTextAddUSBDisk(qemuMonitorPtr mon,
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &info) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &info) < 0) {
         qemuReportError(VIR_ERR_INTERNAL_ERROR,
                         "%s", _("cannot run monitor command to add usb disk"));
         goto cleanup;
@@ -1414,7 +1414,7 @@ static int qemuMonitorTextAddUSBDevice(qemuMonitorPtr mon,
         return -1;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("cannot attach usb device"));
         goto cleanup;
@@ -1555,7 +1555,7 @@ int qemuMonitorTextAddPCIHostDevice(qemuMonitorPtr mon,
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("cannot attach host pci device"));
         goto cleanup;
@@ -1606,7 +1606,7 @@ try_command:
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("cannot attach %s disk %s"), bus, path);
         goto cleanup;
@@ -1648,7 +1648,7 @@ int qemuMonitorTextAddPCINetwork(qemuMonitorPtr mon,
         return -1;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("failed to add NIC with '%s'"), cmd);
         goto cleanup;
@@ -1692,7 +1692,7 @@ try_command:
         }
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("failed to remove PCI device"));
         goto cleanup;
@@ -1740,7 +1740,7 @@ int qemuMonitorTextSendFileHandle(qemuMonitorPtr mon,
         return -1;
     }
 
-    if (qemuMonitorCommandWithFd(mon, cmd, fd, &reply) < 0) {
+    if (qemuMonitorHMPCommandWithFd(mon, cmd, fd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("failed to pass fd to qemu with '%s'"), cmd);
         goto cleanup;
@@ -1783,7 +1783,7 @@ int qemuMonitorTextCloseFileHandle(qemuMonitorPtr mon,
         return -1;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("failed to close fd in qemu with '%s'"), cmd);
         goto cleanup;
@@ -1819,7 +1819,7 @@ int qemuMonitorTextAddHostNetwork(qemuMonitorPtr mon,
         return -1;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("failed to add host net with '%s'"), cmd);
         goto cleanup;
@@ -1854,7 +1854,7 @@ int qemuMonitorTextRemoveHostNetwork(qemuMonitorPtr mon,
         return -1;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("failed to remove host network in qemu with '%s'"), cmd);
         goto cleanup;
@@ -1883,7 +1883,7 @@ int qemuMonitorTextAddNetdev(qemuMonitorPtr mon,
         return -1;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("failed to add netdev with '%s'"), cmd);
         goto cleanup;
@@ -1912,7 +1912,7 @@ int qemuMonitorTextRemoveNetdev(qemuMonitorPtr mon,
         return -1;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("failed to remove netdev in qemu with '%s'"), cmd);
         goto cleanup;
@@ -1947,7 +1947,7 @@ int qemuMonitorTextGetPtyPaths(qemuMonitorPtr mon,
     char *reply = NULL;
     int ret = -1;
 
-    if (qemuMonitorCommand(mon, "info chardev", &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, "info chardev", &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED, "%s",
                         _("failed to retrieve chardev info in qemu with 'info chardev'"));
         goto cleanup;
@@ -2032,7 +2032,7 @@ try_command:
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("cannot attach %s disk controller"), bus);
         goto cleanup;
@@ -2131,7 +2131,7 @@ try_command:
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("failed to close fd in qemu with '%s'"), cmd);
         goto cleanup;
@@ -2222,7 +2222,7 @@ int qemuMonitorTextGetAllPCIAddresses(qemuMonitorPtr mon,
 
     *retaddrs = NULL;
 
-    if (qemuMonitorCommand(mon, "info pci", &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, "info pci", &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                          "%s", _("cannot query PCI addresses"));
         return -1;
@@ -2315,7 +2315,7 @@ int qemuMonitorTextDelDevice(qemuMonitorPtr mon,
     }
 
     DEBUG("TextDelDevice devalias=%s", devalias);
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("cannot detach %s device"), devalias);
         goto cleanup;
@@ -2355,7 +2355,7 @@ int qemuMonitorTextAddDevice(qemuMonitorPtr mon,
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("cannot attach %s device"), devicestr);
         goto cleanup;
@@ -2400,7 +2400,7 @@ int qemuMonitorTextAddDrive(qemuMonitorPtr mon,
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("failed to close fd in qemu with '%s'"), cmd);
         goto cleanup;
@@ -2442,7 +2442,7 @@ int qemuMonitorTextDriveDel(qemuMonitorPtr mon,
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("cannot delete %s drive"), drivestr);
         goto cleanup;
@@ -2496,7 +2496,7 @@ int qemuMonitorTextSetDrivePassphrase(qemuMonitorPtr mon,
         goto cleanup;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply) < 0) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply) < 0) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("failed to close fd in qemu with '%s'"), cmd);
         goto cleanup;
@@ -2532,7 +2532,7 @@ int qemuMonitorTextCreateSnapshot(qemuMonitorPtr mon, const char *name)
         return -1;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply)) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply)) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("failed to take snapshot using command '%s'"), cmd);
         goto cleanup;
@@ -2577,7 +2577,7 @@ int qemuMonitorTextLoadSnapshot(qemuMonitorPtr mon, const char *name)
         return -1;
     }
 
-    if (qemuMonitorCommand(mon, cmd, &reply)) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply)) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                          _("failed to restore snapshot using command '%s'"),
                          cmd);
@@ -2632,7 +2632,7 @@ int qemuMonitorTextDeleteSnapshot(qemuMonitorPtr mon, const char *name)
         virReportOOMError();
         return -1;
     }
-    if (qemuMonitorCommand(mon, cmd, &reply)) {
+    if (qemuMonitorHMPCommand(mon, cmd, &reply)) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                          _("failed to delete snapshot using command '%s'"),
                          cmd);
@@ -2673,7 +2673,7 @@ int qemuMonitorTextArbitraryCommand(qemuMonitorPtr mon, const char *cmd,
         return -1;
     }
 
-    ret = qemuMonitorCommand(mon, safecmd, reply);
+    ret = qemuMonitorHMPCommand(mon, safecmd, reply);
     if (ret != 0)
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         _("failed to run cmd '%s'"), safecmd);

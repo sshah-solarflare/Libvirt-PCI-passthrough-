@@ -521,17 +521,19 @@ cleanup:
 }
 
 
-static int doStartCPUs(struct qemud_driver *driver, virDomainObjPtr vm, virConnectPtr conn)
+static int
+doStartCPUs(struct qemud_driver *driver, virDomainObjPtr vm,
+            virConnectPtr conn)
 {
     int ret;
     qemuDomainObjPrivatePtr priv = vm->privateData;
 
     qemuDomainObjEnterMonitorWithDriver(driver, vm);
     ret = qemuMonitorStartCPUs(priv->mon, conn);
+    qemuDomainObjExitMonitorWithDriver(driver, vm);
     if (ret == 0) {
         vm->state = VIR_DOMAIN_RUNNING;
     }
-    qemuDomainObjExitMonitorWithDriver(driver, vm);
 
     return ret;
 }
@@ -2256,8 +2258,8 @@ qemudWaitForMonitor(struct qemud_driver* driver,
         goto cleanup;
     }
 
-    qemuDomainObjEnterMonitorWithDriver(driver, vm);
     qemuDomainObjPrivatePtr priv = vm->privateData;
+    qemuDomainObjEnterMonitorWithDriver(driver, vm);
     ret = qemuMonitorGetPtyPaths(priv->mon, paths);
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
@@ -2424,6 +2426,7 @@ qemuInitPasswords(virConnectPtr conn,
         for (i = 0 ; i < vm->def->ndisks ; i++) {
             char *secret;
             size_t secretLen;
+            const char *alias;
 
             if (!vm->def->disks[i]->encryption ||
                 !vm->def->disks[i]->src)
@@ -2434,10 +2437,9 @@ qemuInitPasswords(virConnectPtr conn,
                                         &secret, &secretLen) < 0)
                 goto cleanup;
 
+            alias = vm->def->disks[i]->info.alias;
             qemuDomainObjEnterMonitorWithDriver(driver, vm);
-            ret = qemuMonitorSetDrivePassphrase(priv->mon,
-                                                vm->def->disks[i]->info.alias,
-                                                secret);
+            ret = qemuMonitorSetDrivePassphrase(priv->mon, alias, secret);
             VIR_FREE(secret);
             qemuDomainObjExitMonitorWithDriver(driver, vm);
             if (ret < 0)
@@ -3031,6 +3033,7 @@ static int qemudStartVMDaemon(virConnectPtr conn,
     virCommandPtr cmd = NULL;
 
     struct qemudHookData hookData;
+    unsigned long cur_balloon;
     hookData.conn = conn;
     hookData.vm = vm;
     hookData.driver = driver;
@@ -3346,8 +3349,9 @@ static int qemudStartVMDaemon(virConnectPtr conn,
     }
 
     DEBUG0("Setting initial memory amount");
+    cur_balloon = vm->def->mem.cur_balloon;
     qemuDomainObjEnterMonitorWithDriver(driver, vm);
-    if (qemuMonitorSetBalloon(priv->mon, vm->def->mem.cur_balloon) < 0) {
+    if (qemuMonitorSetBalloon(priv->mon, cur_balloon) < 0) {
         qemuDomainObjExitMonitorWithDriver(driver, vm);
         goto cleanup;
     }
@@ -5449,14 +5453,15 @@ static int qemudDomainHotplugVcpus(virDomainObjPtr vm, unsigned int nvcpus)
     int i, rc = 1;
     int ret = -1;
     int oldvcpus = vm->def->vcpus;
+    int vcpus = oldvcpus;
 
     qemuDomainObjEnterMonitor(vm);
 
     /* We need different branches here, because we want to offline
      * in reverse order to onlining, so any partial fail leaves us in a
      * reasonably sensible state */
-    if (nvcpus > vm->def->vcpus) {
-        for (i = vm->def->vcpus ; i < nvcpus ; i++) {
+    if (nvcpus > vcpus) {
+        for (i = vcpus ; i < nvcpus ; i++) {
             /* Online new CPU */
             rc = qemuMonitorSetCPU(priv->mon, i, 1);
             if (rc == 0)
@@ -5464,10 +5469,10 @@ static int qemudDomainHotplugVcpus(virDomainObjPtr vm, unsigned int nvcpus)
             if (rc < 0)
                 goto cleanup;
 
-            vm->def->vcpus++;
+            vcpus++;
         }
     } else {
-        for (i = vm->def->vcpus - 1 ; i >= nvcpus ; i--) {
+        for (i = vcpus - 1 ; i >= nvcpus ; i--) {
             /* Offline old CPU */
             rc = qemuMonitorSetCPU(priv->mon, i, 0);
             if (rc == 0)
@@ -5475,7 +5480,7 @@ static int qemudDomainHotplugVcpus(virDomainObjPtr vm, unsigned int nvcpus)
             if (rc < 0)
                 goto cleanup;
 
-            vm->def->vcpus--;
+            vcpus--;
         }
     }
 
@@ -5483,6 +5488,7 @@ static int qemudDomainHotplugVcpus(virDomainObjPtr vm, unsigned int nvcpus)
 
 cleanup:
     qemuDomainObjExitMonitor(vm);
+    vm->def->vcpus = vcpus;
     qemuAuditVcpu(vm, oldvcpus, nvcpus, "update", rc == 1);
     return ret;
 

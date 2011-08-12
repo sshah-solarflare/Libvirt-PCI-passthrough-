@@ -593,14 +593,10 @@ static void qemuMonitorJSONHandleIOError(qemuMonitorPtr mon, virJSONValuePtr dat
         VIR_WARN0("missing device in disk io error event");
     }
 
-#if 0
-    if ((reason = virJSONValueObjectGetString(data, "reason")) == NULL) {
-        VIR_WARN0("missing reason in disk io error event");
+    if ((reason = virJSONValueObjectGetString(data, "__com.redhat_reason")) == NULL) {
+        VIR_WARN0("missing __com.redhat_reason in disk io error event");
         reason = "";
     }
-#else
-    reason = "";
-#endif
 
     if ((actionID = qemuMonitorIOErrorActionTypeFromString(action)) < 0) {
         VIR_WARN("unknown disk io error action '%s'", action);

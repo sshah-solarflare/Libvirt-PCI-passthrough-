@@ -170,7 +170,7 @@ nodist_libvirtd_SOURCES = probes.h
 
 BUILT_SOURCES += probes.h
 
-tapsetdir = $(datadir)/systemtap/tapsets
+tapsetdir = $(datadir)/systemtap/tapset
 tapset_DATA = libvirtd.stp
 
 probes.h: probes.d

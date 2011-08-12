@@ -187,7 +187,6 @@ vmwareStopVM(struct vmware_driver *driver, virDomainObjPtr vm)
     vmwareSetSentinal(cmd, ((vmwareDomainPtr) vm->privateData)->vmxPath);
 
     if (virRun(cmd, NULL) < 0) {
-        vmwareError(VIR_ERR_INTERNAL_ERROR, _("Could not exec %s"), VMRUN);
         return -1;
     }
 
@@ -220,7 +219,6 @@ vmwareStartVM(struct vmware_driver *driver, virDomainObjPtr vm)
         vmwareSetSentinal(cmd, NULL);
 
     if (virRun(cmd, NULL) < 0) {
-        vmwareError(VIR_ERR_INTERNAL_ERROR, _("Could not exec %s"), VMRUN);
         return -1;
     }
 

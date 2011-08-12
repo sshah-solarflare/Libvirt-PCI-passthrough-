@@ -9354,7 +9354,9 @@ static int doPeer2PeerMigrate(virDomainPtr dom,
 cleanup:
     VIR_FREE(dom_xml);
     /* don't call virConnectClose(), because that resets any pending errors */
+    qemuDomainObjEnterRemoteWithDriver(driver, vm);
     virUnrefConnect(dconn);
+    qemuDomainObjExitRemoteWithDriver(driver, vm);
 
     return ret;
 }

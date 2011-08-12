@@ -125,6 +125,10 @@ int qemuPhysIfaceConnect(virConnectPtr conn,
                          const unsigned char *vmuuid,
                          enum virVMOperationType vmop);
 
+int qemuOpenVhostNet(virDomainNetDefPtr net,
+                     unsigned long long qemuCmdFlags,
+                     int *vhostfd);
+
 int qemudCanonicalizeMachine(struct qemud_driver *driver,
                              virDomainDefPtr def);
 

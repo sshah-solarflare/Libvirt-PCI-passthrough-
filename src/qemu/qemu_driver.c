@@ -4883,7 +4883,7 @@ static int qemudDomainSaveFlag(struct qemud_driver *driver, virDomainPtr dom,
             goto endjob;
         }
         rc = virCgroupAllowDevicePath(cgroup, path);
-        if (rc != 0) {
+        if (rc < 0) {
             virReportSystemError(-rc,
                                  _("Unable to allow device %s for %s"),
                                  path, vm->def->name);
@@ -4936,7 +4936,7 @@ static int qemudDomainSaveFlag(struct qemud_driver *driver, virDomainPtr dom,
 
     if (cgroup != NULL) {
         rc = virCgroupDenyDevicePath(cgroup, path);
-        if (rc != 0)
+        if (rc < 0)
             VIR_WARN("Unable to deny device %s for %s %d",
                      path, vm->def->name, rc);
     }
@@ -4967,7 +4967,7 @@ endjob:
 
             if (cgroup != NULL) {
                 rc = virCgroupDenyDevicePath(cgroup, path);
-                if (rc != 0)
+                if (rc < 0)
                     VIR_WARN("Unable to deny device %s for %s: %d",
                              path, vm->def->name, rc);
             }

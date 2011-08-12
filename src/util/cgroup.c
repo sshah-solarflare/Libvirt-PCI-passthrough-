@@ -1144,7 +1144,8 @@ int virCgroupAllowDeviceMajor(virCgroupPtr group, char type, int major)
  * Queries the type of device and its major/minor number, and
  * adds that to the cgroup ACL
  *
- * Returns: 0 on success
+ * Returns: 0 on success, 1 if path exists but is not a device, or
+ * negative errno value on failure
  */
 #if defined(major) && defined(minor)
 int virCgroupAllowDevicePath(virCgroupPtr group, const char *path)
@@ -1155,7 +1156,7 @@ int virCgroupAllowDevicePath(virCgroupPtr group, const char *path)
         return -errno;
 
     if (!S_ISCHR(sb.st_mode) && !S_ISBLK(sb.st_mode))
-        return -EINVAL;
+        return 1;
 
     return virCgroupAllowDevice(group,
                                 S_ISCHR(sb.st_mode) ? 'c' : 'b',
@@ -1239,7 +1240,7 @@ int virCgroupDenyDevicePath(virCgroupPtr group, const char *path)
         return -errno;
 
     if (!S_ISCHR(sb.st_mode) && !S_ISBLK(sb.st_mode))
-        return -EINVAL;
+        return 1;
 
     return virCgroupDenyDevice(group,
                                S_ISCHR(sb.st_mode) ? 'c' : 'b',

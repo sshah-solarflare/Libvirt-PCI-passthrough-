@@ -44,6 +44,8 @@
 #include <sys/wait.h>
 #include <sys/ioctl.h>
 #include <sys/un.h>
+#include <gnutls/gnutls.h>
+#include <gnutls/x509.h>
 
 
 #include "virterror_internal.h"
@@ -98,6 +100,26 @@
 
 #define timeval_to_ms(tv)       (((tv).tv_sec * 1000ull) + ((tv).tv_usec / 1000))
 
+typedef struct _qemuDomainObjMigrationGraphics qemuDomainObjMigrationGraphics;
+typedef qemuDomainObjMigrationGraphics *qemuDomainObjMigrationGraphicsPtr;
+struct _qemuDomainObjMigrationGraphics {
+    int type;
+    int port;
+    int tlsPort;
+    char *listen;
+    char *tlsSubject;
+};
+
+typedef struct _qemuDomainObjMigration qemuDomainObjMigration;
+typedef qemuDomainObjMigration *qemuDomainObjMigrationPtr;
+struct _qemuDomainObjMigration {
+    int id;
+    unsigned char uuid[VIR_UUID_BUFLEN];
+    char *name;
+    char *hostname;
+    qemuDomainObjMigrationGraphicsPtr graphics;
+};
+
 struct watchdogEvent
 {
     virDomainObjPtr vm;
@@ -139,6 +161,364 @@ static int qemudVMFiltersInstantiate(virConnectPtr conn,
                                      virDomainDefPtr def);
 
 static struct qemud_driver *qemu_driver = NULL;
+
+
+static void qemuDomainObjMigrationGraphicsFree(qemuDomainObjMigrationGraphicsPtr grap)
+{
+    if (!grap)
+        return;
+    VIR_FREE(grap->listen);
+    VIR_FREE(grap->tlsSubject);
+    VIR_FREE(grap);
+}
+
+
+static void qemuDomainObjMigrationFree(qemuDomainObjMigrationPtr mig)
+{
+    if (!mig)
+        return;
+
+    qemuDomainObjMigrationGraphicsFree(mig->graphics);
+    VIR_FREE(mig->hostname);
+    VIR_FREE(mig->name);
+    VIR_FREE(mig);
+}
+
+
+static char *
+qemuDomainExtractTLSSubject(const char *certdir)
+{
+    char *certfile = NULL;
+    char *subject = NULL;
+    char *pemdata = NULL;
+    gnutls_datum_t pemdatum;
+    gnutls_x509_crt_t cert;
+    int ret;
+    size_t subjectlen;
+
+    if (virAsprintf(&certfile, "%s/server-cert.pem", certdir) < 0)
+        goto no_memory;
+
+    if (virFileReadAll(certfile, 8192, &pemdata) < 0) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        _("unable to read server cert %s"), certfile);
+        goto error;
+    }
+
+    ret = gnutls_x509_crt_init(&cert);
+    if (ret < 0) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        _("cannot initialize cert object: %s"),
+                        gnutls_strerror(ret));
+        goto error;
+    }
+
+    pemdatum.data = (unsigned char *)pemdata;
+    pemdatum.size = strlen(pemdata);
+
+    ret = gnutls_x509_crt_import(cert, &pemdatum, GNUTLS_X509_FMT_PEM);
+    if (ret < 0) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        _("cannot load cert data from %s: %s"),
+                        certfile, gnutls_strerror(ret));
+        goto error;
+    }
+
+    subjectlen = 1024;
+    if (VIR_ALLOC_N(subject, subjectlen+1) < 0)
+        goto no_memory;
+
+    gnutls_x509_crt_get_dn(cert, subject, &subjectlen);
+    subject[subjectlen] = '\0';
+
+    VIR_FREE(certfile);
+    VIR_FREE(pemdata);
+
+    return subject;
+
+no_memory:
+    virReportOOMError();
+error:
+    VIR_FREE(certfile);
+    VIR_FREE(pemdata);
+    return NULL;
+}
+
+
+static qemuDomainObjMigrationGraphicsPtr
+qemuDomainObjMigrationGraphicsAlloc(struct qemud_driver *driver,
+                                    virDomainGraphicsDefPtr def)
+{
+    qemuDomainObjMigrationGraphicsPtr mig = NULL;
+    const char *listenAddr;
+
+    if (VIR_ALLOC(mig) < 0)
+        goto no_memory;
+
+    mig->type = def->type;
+    if (mig->type == VIR_DOMAIN_GRAPHICS_TYPE_VNC) {
+        mig->port = def->data.vnc.port;
+        listenAddr = def->data.vnc.listenAddr;
+        if (!listenAddr)
+            listenAddr = driver->vncListen;
+
+        if (driver->vncTLS &&
+            !(mig->tlsSubject = qemuDomainExtractTLSSubject(driver->vncTLSx509certdir)))
+            goto error;
+    } else {
+        mig->port = def->data.spice.port;
+        if (driver->spiceTLS)
+            mig->tlsPort = def->data.spice.tlsPort;
+        else
+            mig->tlsPort = -1;
+        listenAddr = def->data.spice.listenAddr;
+        if (!listenAddr)
+            listenAddr = driver->spiceListen;
+
+        if (driver->spiceTLS &&
+            !(mig->tlsSubject = qemuDomainExtractTLSSubject(driver->spiceTLSx509certdir)))
+            goto error;
+    }
+    if (!(mig->listen = strdup(listenAddr)))
+        goto no_memory;
+
+    return mig;
+
+no_memory:
+    virReportOOMError();
+error:
+    qemuDomainObjMigrationGraphicsFree(mig);
+    return NULL;
+}
+
+
+static qemuDomainObjMigrationPtr
+qemuDomainObjMigrationAlloc(struct qemud_driver *driver,
+                            virDomainObjPtr dom)
+{
+    qemuDomainObjMigrationPtr mig = NULL;
+
+    if (VIR_ALLOC(mig) < 0)
+        goto no_memory;
+
+    mig->id = dom->def->id;
+    if (!(mig->name = strdup(dom->def->name)))
+        goto no_memory;
+    memcpy(mig->uuid, dom->def->uuid, VIR_UUID_BUFLEN);
+
+    if (!(mig->hostname = virGetHostname(NULL)))
+        goto error;
+
+    if (dom->def->ngraphics == 1 &&
+        (dom->def->graphics[0]->type == VIR_DOMAIN_GRAPHICS_TYPE_VNC ||
+         dom->def->graphics[0]->type == VIR_DOMAIN_GRAPHICS_TYPE_SPICE) &&
+        !(mig->graphics = qemuDomainObjMigrationGraphicsAlloc(driver, dom->def->graphics[0])))
+        goto no_memory;
+
+    return mig;
+
+no_memory:
+    virReportOOMError();
+error:
+    qemuDomainObjMigrationFree(mig);
+    return NULL;
+}
+
+
+static void qemuDomainObjMigrationGraphicsXMLFormat(virBufferPtr buf,
+                                                    qemuDomainObjMigrationGraphicsPtr grap)
+{
+    virBufferVSprintf(buf, "  <graphics type='%s' port='%d' listen='%s'",
+                      virDomainGraphicsTypeToString(grap->type),
+                      grap->port, grap->listen);
+    if (grap->type == VIR_DOMAIN_GRAPHICS_TYPE_SPICE)
+        virBufferVSprintf(buf, " tlsPort='%d'", grap->tlsPort);
+    if (grap->tlsSubject) {
+        virBufferVSprintf(buf, ">\n");
+        virBufferEscapeString(buf, "    <cert info='subject' value='%s'/>\n", grap->tlsSubject);
+        virBufferVSprintf(buf, "  </graphics>\n");
+    } else {
+        virBufferVSprintf(buf, "/>\n");
+    }
+}
+
+
+static void qemuDomainObjMigrationXMLFormat(virBufferPtr buf,
+                                            qemuDomainObjMigrationPtr mig)
+{
+    char uuidstr[VIR_UUID_STRING_BUFLEN];
+
+    virUUIDFormat(mig->uuid, uuidstr);
+
+    virBufferVSprintf(buf, "<qemu-migration id='%d'>\n", mig->id);
+    virBufferEscapeString(buf, "  <name>%s</name>\n", mig->name);
+    virBufferVSprintf(buf, "  <uuid>%s</uuid>\n", uuidstr);
+    virBufferEscapeString(buf, "  <hostname>%s</hostname>\n", mig->hostname);
+
+    if (mig->graphics)
+        qemuDomainObjMigrationGraphicsXMLFormat(buf, mig->graphics);
+
+    virBufferAddLit(buf, "</qemu-migration>\n");
+}
+
+
+static char *qemuDomainObjMigrationXMLFormatStr(qemuDomainObjMigrationPtr mig)
+{
+    virBuffer buf = VIR_BUFFER_INITIALIZER;
+
+    qemuDomainObjMigrationXMLFormat(&buf, mig);
+
+    if (virBufferError(&buf)) {
+        virReportOOMError();
+        return NULL;
+    }
+
+    return virBufferContentAndReset(&buf);
+}
+
+
+static qemuDomainObjMigrationGraphicsPtr
+qemuDomainObjMigrationGraphicsXMLParse(xmlXPathContextPtr ctxt)
+{
+    qemuDomainObjMigrationGraphicsPtr grap;
+    long port;
+    char *tmp;
+
+    if (VIR_ALLOC(grap) < 0)
+        goto no_memory;
+
+    if (!(tmp = virXPathString("string(./graphics/@type)", ctxt))) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        "%s", _("missing type attribute in migration data"));
+        goto error;
+    }
+    if ((grap->type = virDomainGraphicsTypeFromString(tmp)) < 0) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        _("unknown graphics type %s"), tmp);
+        VIR_FREE(tmp);
+        goto error;
+    }
+    if (virXPathLong("string(./graphics/@port)", ctxt, &port) < 0) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        "%s", _("missing port attribute in migration data"));
+        goto error;
+    }
+    grap->port = (int)port;
+    if (grap->type == VIR_DOMAIN_GRAPHICS_TYPE_SPICE) {
+        if (virXPathLong("string(./graphics/@tlsPort)", ctxt, &port) < 0) {
+            qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                            "%s", _("missing port attribute in migration data"));
+            goto error;
+        }
+        grap->tlsPort = (int)port;
+    }
+    if (!(grap->listen = virXPathString("string(./graphics/@listen)", ctxt))) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        "%s", _("missing listen attribute in migration data"));
+        goto error;
+    }
+    /* Optional */
+    grap->tlsSubject = virXPathString("string(./graphics/cert[ info='subject']/@value)", ctxt);
+
+
+    return grap;
+
+no_memory:
+    virReportOOMError();
+error:
+    qemuDomainObjMigrationGraphicsFree(grap);
+    return NULL;
+}
+
+
+static qemuDomainObjMigrationPtr
+qemuDomainObjMigrationXMLParse(xmlXPathContextPtr ctxt)
+{
+    qemuDomainObjMigrationPtr mig;
+    long id;
+    char *tmp;
+
+    if (VIR_ALLOC(mig) < 0)
+        goto no_memory;
+
+    if ((virXPathLong("string(./@id)", ctxt, &id)) < 0) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        "%s", _("missing ID attribute in migration data"));
+        goto error;
+    }
+    mig->id = (int)id;
+
+    /* Extract domain name */
+    if (!(mig->name = virXPathString("string(./name[1])", ctxt))) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        "%s", _("missing name element in migration data"));
+        goto error;
+    }
+
+    /* Extract domain uuid */
+    tmp = virXPathString("string(./uuid[1])", ctxt);
+    if (!tmp) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        "%s", _("missing uuid element in migration data"));
+        goto error;
+    }
+    if (virUUIDParse(tmp, mig->uuid) < 0) {
+        VIR_FREE(tmp);
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        "%s", _("malformed uuid element"));
+        goto error;
+    }
+    VIR_FREE(tmp);
+
+    /* Extract domain name */
+    if (!(mig->hostname = virXPathString("string(./hostname[1])", ctxt))) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        "%s", _("missing hostname element in migration data"));
+        goto error;
+    }
+
+
+    if (virXPathBoolean("count(./graphics) > 0", ctxt) &&
+        (!(mig->graphics = qemuDomainObjMigrationGraphicsXMLParse(ctxt))))
+        goto error;
+
+    return mig;
+
+no_memory:
+    virReportOOMError();
+error:
+    qemuDomainObjMigrationFree(mig);
+    return NULL;
+}
+
+
+static qemuDomainObjMigrationPtr
+qemuDomainObjMigrationXMLParseStr(const char *xml)
+{
+    xmlDocPtr doc = NULL;
+    xmlXPathContextPtr ctxt = NULL;
+    qemuDomainObjMigrationPtr mig = NULL;
+
+    VIR_DEBUG("xml=%s", NULLSTR(xml));
+
+    if (!(doc = virXMLParseString(xml, "qemumigration.xml")))
+        goto cleanup;
+
+    if ((ctxt = xmlXPathNewContext(doc)) == NULL) {
+        virReportOOMError();
+        goto cleanup;
+    }
+
+    ctxt->node = xmlDocGetRootElement(doc);
+
+    mig = qemuDomainObjMigrationXMLParse(ctxt);
+
+cleanup:
+    xmlXPathFreeContext(ctxt);
+    xmlFreeDoc(doc);
+
+    return mig;
+}
 
 
 static int doStartCPUs(struct qemud_driver *driver, virDomainObjPtr vm, virConnectPtr conn)
@@ -7955,6 +8335,68 @@ qemuDomainIsMigratable(virDomainDefPtr def)
     return true;
 }
 
+
+static int
+qemuDomainMigrateEncodeCookie(struct qemud_driver *driver,
+                              virDomainObjPtr vm,
+                              char **cookie,
+                              int *cookielen,
+                              unsigned long flags ATTRIBUTE_UNUSED)
+{
+    qemuDomainObjMigrationPtr mig = NULL;
+
+    if (!cookie || !cookielen) {
+        qemuReportError(VIR_ERR_INVALID_ARG, "missing cookie");
+        return -1;
+    }
+
+    *cookie = NULL;
+    *cookielen = 0;
+
+    if (!(mig = qemuDomainObjMigrationAlloc(driver, vm)))
+        return -1;
+    *cookie = qemuDomainObjMigrationXMLFormatStr(mig);
+    qemuDomainObjMigrationFree(mig);
+
+    if (!*cookie)
+        return -1;
+    *cookielen = strlen(*cookie) + 1;
+
+    return 0;
+}
+
+
+static int
+qemuDomainMigrateGraphicsRelocate(struct qemud_driver *driver,
+                                  virDomainObjPtr vm,
+                                  qemuDomainObjMigrationPtr mig)
+{
+    qemuDomainObjPrivatePtr priv = vm->privateData;
+    int ret;
+
+    if (!mig)
+        return 0;
+
+    if (!mig->graphics)
+        return 0;
+
+    if (mig->graphics->type != VIR_DOMAIN_GRAPHICS_TYPE_SPICE)
+        return 0;
+
+    qemuDomainObjEnterMonitorWithDriver(driver, vm);
+    /* XXX listen param vs hostname ? */
+    ret = qemuMonitorGraphicsRelocate(priv->mon,
+                                      mig->graphics->type,
+                                      mig->hostname,
+                                      mig->graphics->port,
+                                      mig->graphics->tlsPort,
+                                      mig->graphics->tlsSubject);
+    qemuDomainObjExitMonitorWithDriver(driver, vm);
+
+    return ret;
+}
+
+
 /* Prepare is the first step, and it runs on the destination host.
  *
  * This version starts an empty VM listening on a localhost TCP port, and
@@ -8145,8 +8587,8 @@ cleanup:
  */
 static int ATTRIBUTE_NONNULL (5)
 qemudDomainMigratePrepare2 (virConnectPtr dconn,
-                            char **cookie ATTRIBUTE_UNUSED,
-                            int *cookielen ATTRIBUTE_UNUSED,
+                            char **cookie,
+                            int *cookielen,
                             const char *uri_in,
                             char **uri_out,
                             unsigned long flags,
@@ -8331,6 +8773,15 @@ qemudDomainMigratePrepare2 (virConnectPtr dconn,
         goto endjob;
     }
 
+    VIR_DEBUG("Try Encode cookie %p %p", cookie, cookielen);
+    if (qemuDomainMigrateEncodeCookie(driver, vm, cookie, cookielen, flags) < 0) {
+        /* We could tear down the whole guest here, but
+         * cookie data is (so far) non-critical, so that
+         * seems  little harsh. We'll just warn for now..
+         */
+        VIR_WARN0("Unable to encode migration cookie");
+    }
+
     qemuDomainStartAudit(vm, "migrated", true);
     event = virDomainEventNewFromObj(vm,
                                      VIR_DOMAIN_EVENT_STARTED,
@@ -8375,6 +8826,8 @@ cleanup:
 static int doNativeMigrate(struct qemud_driver *driver,
                            virDomainObjPtr vm,
                            const char *uri,
+                           const char *cookie,
+                           int cookielen,
                            unsigned int flags,
                            const char *dname ATTRIBUTE_UNUSED,
                            unsigned long resource)
@@ -8383,6 +8836,24 @@ static int doNativeMigrate(struct qemud_driver *driver,
     xmlURIPtr uribits = NULL;
     qemuDomainObjPrivatePtr priv = vm->privateData;
     unsigned int background_flags = QEMU_MONITOR_MIGRATE_BACKGROUND;
+    qemuDomainObjMigrationPtr mig = NULL;
+
+    VIR_DEBUG("Cookie='%s' len=%d'", cookie, cookielen);
+
+    if (cookie && cookielen &&
+        cookie[cookielen-1] != '\0') {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        "%s", _("cookie is not NULL terminated"));
+        return -1;
+    }
+
+    if (!(mig = qemuDomainObjMigrationXMLParseStr(cookie))) {
+        VIR_WARN("failed to parse migration data %s", cookie);
+        /* ignore, not fatal */
+    }
+
+    if (qemuDomainMigrateGraphicsRelocate(driver, vm, mig) < 0)
+        VIR_WARN0("unable to provide data for graphics client relocation");
 
     /* Issue the migrate command. */
     if (STRPREFIX(uri, "tcp:") && !STRPREFIX(uri, "tcp://")) {
@@ -8429,6 +8900,7 @@ static int doNativeMigrate(struct qemud_driver *driver,
     ret = 0;
 
 cleanup:
+    qemuDomainObjMigrationFree(mig);
     xmlFreeURI(uribits);
     return ret;
 }
@@ -8586,6 +9058,12 @@ static int doTunnelMigrate(virDomainPtr dom,
         goto cleanup;
 
     qemuDomainObjEnterRemoteWithDriver(driver, vm);
+
+    /* XXX this is missing the cookie arg. Will need
+     * to add a domainMigratePrepareTunnel2 in future
+     * to support seemless migration with tunnelled
+     * migration
+     */
     internalret = dconn->driver->domainMigratePrepareTunnel(dconn, st,
                                                             flags, dname,
                                                             resource, dom_xml);
@@ -8716,14 +9194,16 @@ static int doNonTunnelMigrate(virDomainPtr dom,
     virDomainPtr ddomain = NULL;
     int retval = -1;
     char *uri_out = NULL;
+    char *cookie = NULL;
+    int cookielen = 0;
     int rc;
 
     qemuDomainObjEnterRemoteWithDriver(driver, vm);
     /* NB we don't pass 'uri' into this, since that's the libvirtd
      * URI in this context - so we let dest pick it */
     rc = dconn->driver->domainMigratePrepare2(dconn,
-                                              NULL, /* cookie */
-                                              0, /* cookielen */
+                                              &cookie,
+                                              &cookielen,
                                               NULL, /* uri */
                                               &uri_out,
                                               flags, dname,
@@ -8748,7 +9228,8 @@ static int doNonTunnelMigrate(virDomainPtr dom,
         goto cleanup;
     }
 
-    if (doNativeMigrate(driver, vm, uri_out, flags, dname, resource) < 0)
+    if (doNativeMigrate(driver, vm, uri_out, cookie, cookielen,
+                        flags, dname, resource) < 0)
         goto finish;
 
     retval = 0;
@@ -8757,13 +9238,14 @@ finish:
     dname = dname ? dname : dom->name;
     qemuDomainObjEnterRemoteWithDriver(driver, vm);
     ddomain = dconn->driver->domainMigrateFinish2
-        (dconn, dname, NULL, 0, uri_out, flags, retval);
+        (dconn, dname, cookie, cookielen, uri_out, flags, retval);
     qemuDomainObjExitRemoteWithDriver(driver, vm);
 
     if (ddomain)
         virUnrefDomain(ddomain);
 
 cleanup:
+    VIR_FREE(cookie);
     return retval;
 }
 
@@ -8837,8 +9319,8 @@ cleanup:
 /* Perform is the second step, and it runs on the source host. */
 static int
 qemudDomainMigratePerform (virDomainPtr dom,
-                           const char *cookie ATTRIBUTE_UNUSED,
-                           int cookielen ATTRIBUTE_UNUSED,
+                           const char *cookie,
+                           int cookielen,
                            const char *uri,
                            unsigned long flags,
                            const char *dname,
@@ -8891,11 +9373,18 @@ qemudDomainMigratePerform (virDomainPtr dom,
     }
 
     if ((flags & (VIR_MIGRATE_TUNNELLED | VIR_MIGRATE_PEER2PEER))) {
+        if (cookielen) {
+            qemuReportError(VIR_ERR_OPERATION_INVALID,
+                            "%s", _("received unexpected cookie with P2P migration"));
+            goto endjob;
+        }
+
         if (doPeer2PeerMigrate(dom, driver, vm, uri, flags, dname, resource) < 0)
             /* doPeer2PeerMigrate already set the error, so just get out */
             goto endjob;
     } else {
-        if (doNativeMigrate(driver, vm, uri, flags, dname, resource) < 0)
+        if (doNativeMigrate(driver, vm, uri, cookie, cookielen,
+                            flags, dname, resource) < 0)
             goto endjob;
     }
 

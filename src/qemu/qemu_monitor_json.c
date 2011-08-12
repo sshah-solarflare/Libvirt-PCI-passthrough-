@@ -1828,6 +1828,43 @@ int qemuMonitorJSONMigrateCancel(qemuMonitorPtr mon)
 }
 
 
+int qemuMonitorJSONGraphicsRelocate(qemuMonitorPtr mon,
+                                    int type,
+                                    const char *hostname,
+                                    int port,
+                                    int tlsPort,
+                                    const char *tlsSubject)
+{
+    int ret = -1;
+    virJSONValuePtr cmd = qemuMonitorJSONMakeCommand("__com.redhat_spice_migrate_info",
+                                                     "s:hostname", hostname,
+                                                     "i:port", port,
+                                                     "i:tls-port", tlsPort,
+                                                     (tlsSubject ? "s:cert-subject" : NULL),
+                                                     (tlsSubject ? tlsSubject : NULL),
+                                                     NULL);
+    virJSONValuePtr reply = NULL;
+    if (!cmd)
+        return -1;
+
+    if (type != VIR_DOMAIN_GRAPHICS_TYPE_SPICE) {
+        virJSONValueFree(cmd);
+        qemuReportError(VIR_ERR_INTERNAL_ERROR, "%s",
+                        _("only spice graphics support client relocation"));
+        return -1;
+    }
+
+    ret = qemuMonitorJSONCommand(mon, cmd, &reply);
+
+    if (ret == 0)
+        ret = qemuMonitorJSONCheckError(cmd, reply);
+
+    virJSONValueFree(cmd);
+    virJSONValueFree(reply);
+    return ret;
+}
+
+
 int qemuMonitorJSONAddUSBDisk(qemuMonitorPtr mon ATTRIBUTE_UNUSED,
                               const char *path ATTRIBUTE_UNUSED)
 {

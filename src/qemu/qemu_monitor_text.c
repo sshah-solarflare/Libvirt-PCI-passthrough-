@@ -1331,6 +1331,40 @@ int qemuMonitorTextMigrateCancel(qemuMonitorPtr mon)
     return 0;
 }
 
+int qemuMonitorTextGraphicsRelocate(qemuMonitorPtr mon,
+                                    int type,
+                                    const char *hostname,
+                                    int port,
+                                    int tlsPort,
+                                    const char *tlsSubject)
+{
+    char *cmd;
+    char *info = NULL;
+
+    if (type != VIR_DOMAIN_GRAPHICS_TYPE_SPICE) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR, "%s",
+                        _("only spice graphics support client relocation"));
+        return -1;
+    }
+
+    if (virAsprintf(&cmd, "__com.redhat_spice_migrate_info %s %d %d %s",
+                    hostname, port, tlsPort, tlsSubject ? tlsSubject : "") < 0) {
+        virReportOOMError();
+        return -1;
+    }
+
+    if (qemuMonitorCommand(mon, cmd, &info) < 0) {
+        VIR_FREE(cmd);
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        "%s", _("cannot run monitor command to relocate graphics client"));
+        return -1;
+    }
+    VIR_FREE(cmd);
+    VIR_FREE(info);
+
+    return 0;
+}
+
 int qemuMonitorTextAddUSBDisk(qemuMonitorPtr mon,
                               const char *path)
 {

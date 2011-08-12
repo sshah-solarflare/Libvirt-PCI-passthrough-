@@ -903,6 +903,7 @@ virStrerror;
 
 
 # xml.h
+virXMLParseStrHelper;
 virXMLPropString;
 virXPathBoolean;
 virXPathLong;

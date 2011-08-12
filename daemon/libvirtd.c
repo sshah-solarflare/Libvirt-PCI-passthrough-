@@ -296,9 +296,6 @@ remoteInitializeGnuTLS (void)
 {
     int err;
 
-    /* Initialise GnuTLS. */
-    gnutls_global_init ();
-
     err = gnutls_certificate_allocate_credentials (&x509_cred);
     if (err) {
         VIR_ERROR(_("gnutls_certificate_allocate_credentials: %s"),
@@ -3228,6 +3225,11 @@ int main(int argc, char **argv) {
         ret = VIR_DAEMON_ERR_PRIVS;
         goto error;
     }
+
+    /* Initialise GnuTLS. This is required event if not
+     * listening on TLS sockes, so that we can parse x509
+     * certificates in drivers */
+    gnutls_global_init ();
 
     if (!(server = qemudInitialize())) {
         ret = VIR_DAEMON_ERR_INIT;

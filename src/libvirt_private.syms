@@ -73,7 +73,7 @@ virCgroupGetFreezerState;
 virCgroupGetMemoryHardLimit;
 virCgroupGetMemorySoftLimit;
 virCgroupGetMemoryUsage;
-virCgroupGetSwapHardLimit;
+virCgroupGetMemSwapHardLimit;
 virCgroupMounted;
 virCgroupPathOfController;
 virCgroupRemove;
@@ -83,7 +83,7 @@ virCgroupSetFreezerState;
 virCgroupSetMemory;
 virCgroupSetMemoryHardLimit;
 virCgroupSetMemorySoftLimit;
-virCgroupSetSwapHardLimit;
+virCgroupSetMemSwapHardLimit;
 
 
 # command.h

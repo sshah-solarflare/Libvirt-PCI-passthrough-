@@ -2326,22 +2326,35 @@ cleanup:
 int qemuMonitorJSONAddDrive(qemuMonitorPtr mon,
                             const char *drivestr)
 {
-    int ret;
+    int ret = -1;
     virJSONValuePtr cmd;
     virJSONValuePtr reply = NULL;
+    virJSONValuePtr args;
 
-    cmd = qemuMonitorJSONMakeCommand("drive_add",
-                                     "s:pci_addr", "dummy",
-                                     "s:opts", drivestr,
+    cmd = qemuMonitorJSONMakeCommand("__com.redhat_drive_add",
                                      NULL);
     if (!cmd)
         return -1;
+
+    args = qemuMonitorJSONKeywordStringToJSON(drivestr, "type");
+    if (!args)
+        goto cleanup;
+
+    /* __com.redhat_drive_add rejects the 'if' key */
+    virJSONValueObjectRemoveKey(args, "if");
+
+    if (virJSONValueObjectAppend(cmd, "arguments", args) < 0) {
+        virReportOOMError();
+        goto cleanup;
+    }
+    args = NULL; /* obj owns reference to args now */
 
     ret = qemuMonitorJSONCommand(mon, cmd, &reply);
 
     if (ret == 0)
         ret = qemuMonitorJSONCheckError(cmd, reply);
 
+cleanup:
     virJSONValueFree(cmd);
     virJSONValueFree(reply);
     return ret;

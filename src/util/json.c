@@ -421,6 +421,37 @@ virJSONValuePtr virJSONValueObjectGet(virJSONValuePtr object, const char *key)
     return NULL;
 }
 
+
+int virJSONValueObjectRemoveKey(virJSONValuePtr object, const char *key)
+{
+    int i;
+
+    if (object->type != VIR_JSON_TYPE_OBJECT)
+        return -1;
+
+    for (i = 0 ; i < object->data.object.npairs ; i++) {
+        if (STREQ(object->data.object.pairs[i].key, key)) {
+            VIR_FREE(object->data.object.pairs[i].key);
+            virJSONValueFree(object->data.object.pairs[i].value);
+
+            if (i < (object->data.object.npairs-1)) {
+                memmove(object->data.object.pairs + i,
+                        object->data.object.pairs + i + 1,
+                        sizeof(*object->data.object.pairs)*
+                        (object->data.object.npairs - (i + 1)));
+            }
+            if (VIR_REALLOC_N(object->data.object.pairs,
+                              object->data.object.npairs-1) < 0)
+            {}
+            object->data.object.npairs--;
+            return 0;
+        }
+    }
+
+    return -1;
+}
+
+
 int virJSONValueArraySize(virJSONValuePtr array)
 {
     if (array->type != VIR_JSON_TYPE_ARRAY)

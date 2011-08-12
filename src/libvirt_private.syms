@@ -501,6 +501,7 @@ virJSONValueObjectGetNumberUlong;
 virJSONValueObjectGetString;
 virJSONValueObjectHasKey;
 virJSONValueObjectIsNull;
+virJSONValueObjectRemoveKey;
 virJSONValueToString;
 
 

@@ -3368,6 +3368,10 @@ char *virConnectDomainXMLToNative(virConnectPtr conn,
         virDispatchError(NULL);
         return (NULL);
     }
+    if (conn->flags & VIR_CONNECT_RO) {
+        virLibConnError(NULL, VIR_ERR_OPERATION_DENIED, __FUNCTION__);
+        goto error;
+    }
 
     if (nativeFormat == NULL || domainXml == NULL) {
         virLibConnError(conn, VIR_ERR_INVALID_ARG, __FUNCTION__);
@@ -9788,6 +9792,11 @@ virNodeDeviceDettach(virNodeDevicePtr dev)
         return (-1);
     }
 
+    if (dev->conn->flags & VIR_CONNECT_RO) {
+        virLibConnError(dev->conn, VIR_ERR_OPERATION_DENIED, __FUNCTION__);
+        goto error;
+    }
+
     if (dev->conn->driver->nodeDeviceDettach) {
         int ret;
         ret = dev->conn->driver->nodeDeviceDettach (dev);
@@ -9829,6 +9838,11 @@ virNodeDeviceReAttach(virNodeDevicePtr dev)
         virLibNodeDeviceError(NULL, VIR_ERR_INVALID_NODE_DEVICE, __FUNCTION__);
         virDispatchError(NULL);
         return (-1);
+    }
+
+    if (dev->conn->flags & VIR_CONNECT_RO) {
+        virLibConnError(dev->conn, VIR_ERR_OPERATION_DENIED, __FUNCTION__);
+        goto error;
     }
 
     if (dev->conn->driver->nodeDeviceReAttach) {
@@ -9874,6 +9888,11 @@ virNodeDeviceReset(virNodeDevicePtr dev)
         virLibNodeDeviceError(NULL, VIR_ERR_INVALID_NODE_DEVICE, __FUNCTION__);
         virDispatchError(NULL);
         return (-1);
+    }
+
+    if (dev->conn->flags & VIR_CONNECT_RO) {
+        virLibConnError(dev->conn, VIR_ERR_OPERATION_DENIED, __FUNCTION__);
+        goto error;
     }
 
     if (dev->conn->driver->nodeDeviceReset) {
@@ -13171,6 +13190,10 @@ virDomainRevertToSnapshot(virDomainSnapshotPtr snapshot,
     }
 
     conn = snapshot->domain->conn;
+    if (conn->flags & VIR_CONNECT_RO) {
+        virLibConnError(conn, VIR_ERR_OPERATION_DENIED, __FUNCTION__);
+        goto error;
+    }
 
     if (conn->driver->domainRevertToSnapshot) {
         int ret = conn->driver->domainRevertToSnapshot(snapshot, flags);
@@ -13217,6 +13240,10 @@ virDomainSnapshotDelete(virDomainSnapshotPtr snapshot,
     }
 
     conn = snapshot->domain->conn;
+    if (conn->flags & VIR_CONNECT_RO) {
+        virLibConnError(conn, VIR_ERR_OPERATION_DENIED, __FUNCTION__);
+        goto error;
+    }
 
     if (conn->driver->domainSnapshotDelete) {
         int ret = conn->driver->domainSnapshotDelete(snapshot, flags);

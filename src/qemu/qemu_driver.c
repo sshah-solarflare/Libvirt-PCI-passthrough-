@@ -4706,7 +4706,8 @@ static int qemudDomainSaveFlag(struct qemud_driver *driver, virDomainPtr dom,
     char *xml = NULL;
     struct qemud_save_header header;
     struct fileOpHookData hdata;
-    int bypassSecurityDriver = 0;
+    bool bypassSecurityDriver = false;
+    bool restoreLabel = false;
     int ret = -1;
     int rc;
     virDomainEventPtr event = NULL;
@@ -4874,7 +4875,7 @@ static int qemudDomainSaveFlag(struct qemud_driver *driver, virDomainPtr dom,
                is NFS, we assume it's a root-squashing NFS share, and that
                the security driver stuff would have failed anyway */
 
-            bypassSecurityDriver = 1;
+            bypassSecurityDriver = true;
         }
     }
 
@@ -4904,6 +4905,7 @@ static int qemudDomainSaveFlag(struct qemud_driver *driver, virDomainPtr dom,
         driver->securityDriver->domainSetSavedStateLabel(driver->securityDriver,
                                                          vm, path) == -1)
         goto endjob;
+    restoreLabel = true;
 
     if (header.compressed == QEMUD_SAVE_FORMAT_RAW) {
         const char *args[] = { "cat", NULL };
@@ -4984,7 +4986,7 @@ endjob:
                              path, vm->def->name, rc);
             }
 
-            if ((!bypassSecurityDriver) &&
+            if (restoreLabel && (!bypassSecurityDriver) &&
                 driver->securityDriver &&
                 driver->securityDriver->domainRestoreSavedStateLabel &&
                 driver->securityDriver->domainRestoreSavedStateLabel(driver->securityDriver,

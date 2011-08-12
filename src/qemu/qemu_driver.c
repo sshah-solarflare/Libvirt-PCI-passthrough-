@@ -6139,8 +6139,6 @@ qemudDomainSaveImageOpen(struct qemud_driver *driver,
     /* Create a domain from this XML */
     if (!(def = virDomainDefParseString(driver->caps, xml,
                                         VIR_DOMAIN_XML_INACTIVE))) {
-        qemuReportError(VIR_ERR_OPERATION_FAILED,
-                        "%s", _("failed to parse XML"));
         goto error;
     }
 
@@ -8505,8 +8503,6 @@ qemudDomainMigratePrepareTunnel(virConnectPtr dconn,
     /* Parse the domain XML. */
     if (!(def = virDomainDefParseString(driver->caps, dom_xml,
                                         VIR_DOMAIN_XML_INACTIVE))) {
-        qemuReportError(VIR_ERR_OPERATION_FAILED,
-                        "%s", _("failed to parse XML"));
         goto cleanup;
     }
 
@@ -8778,8 +8774,6 @@ qemudDomainMigratePrepare2 (virConnectPtr dconn,
     /* Parse the domain XML. */
     if (!(def = virDomainDefParseString(driver->caps, dom_xml,
                                         VIR_DOMAIN_XML_INACTIVE))) {
-        qemuReportError(VIR_ERR_OPERATION_FAILED,
-                        "%s", _("failed to parse XML"));
         goto cleanup;
     }
 

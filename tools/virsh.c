@@ -706,8 +706,10 @@ cmdConnect(vshControl *ctl, const vshCmd *cmd)
     }
 
     VIR_FREE(ctl->name);
-    if (vshCommandOptString(cmd, "name", &name) <= 0)
+    if (vshCommandOptString(cmd, "name", &name) < 0) {
+        vshError(ctl, "%s", _("Please specify valid connection URI"));
         return FALSE;
+    }
     ctl->name = vshStrdup(ctl, name);
 
     if (!ro) {
@@ -773,7 +775,7 @@ static int
 cmdConsole(vshControl *ctl, const vshCmd *cmd)
 {
     virDomainPtr dom;
-    int ret;
+    int ret = FALSE;
     const char *name = NULL;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
@@ -782,11 +784,14 @@ cmdConsole(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         return FALSE;
 
-    if (vshCommandOptString(cmd, "devname", &name) < 0)
-        return FALSE;
+    if (vshCommandOptString(cmd, "devname", &name) < 0) {
+        vshError(ctl, "%s", _("Invalid devname"));
+        goto cleanup;
+    }
 
     ret = cmdRunConsole(ctl, dom, name);
 
+cleanup:
     virDomainFree(dom);
     return ret;
 }
@@ -2406,8 +2411,10 @@ cmdMaxvcpus(vshControl *ctl, const vshCmd *cmd)
     const char *type = NULL;
     int vcpus;
 
-    if (vshCommandOptString(cmd, "type", &type) < 0)
+    if (vshCommandOptString(cmd, "type", &type) < 0) {
+        vshError(ctl, "%s", _("Invalid type"));
         return FALSE;
+    }
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
@@ -2850,8 +2857,10 @@ cmdSetvcpus(vshControl *ctl, const vshCmd *cmd)
     if (!(dom = vshCommandOptDomain(ctl, cmd, NULL)))
         return FALSE;
 
-    if (vshCommandOptInt(cmd, "count", &count) < 0)
-        return FALSE;
+    if (vshCommandOptInt(cmd, "count", &count) < 0) {
+        vshError(ctl, "%s", _("Invalid number of virtual CPUs"));
+        goto cleanup;
+    }
 
     if (!flags) {
         if (virDomainSetVcpus(dom, count) != 0) {
@@ -2863,6 +2872,7 @@ cmdSetvcpus(vshControl *ctl, const vshCmd *cmd)
         }
     }
 
+cleanup:
     virDomainFree(dom);
     return ret;
 }
@@ -3528,8 +3538,10 @@ doMigrate (void *opaque)
 
     if (vshCommandOptString(cmd, "desturi", &desturi) <= 0 ||
         vshCommandOptString(cmd, "migrateuri", &migrateuri) < 0 ||
-        vshCommandOptString(cmd, "dname", &dname) < 0)
+        vshCommandOptString(cmd, "dname", &dname) < 0) {
+        vshError(ctl, "%s", _("missing argument"));
         goto out;
+    }
 
     if (vshCommandOptBool (cmd, "live"))
         flags |= VIR_MIGRATE_LIVE;
@@ -5324,8 +5336,10 @@ static int buildPoolXML(const vshCmd *cmd, const char **retname, char **xml) {
         vshCommandOptString(cmd, "source-dev", &srcDev) < 0 ||
         vshCommandOptString(cmd, "source-name", &srcName) < 0 ||
         vshCommandOptString(cmd, "source-format", &srcFormat) < 0 ||
-        vshCommandOptString(cmd, "target", &target) < 0)
+        vshCommandOptString(cmd, "target", &target) < 0) {
+        vshError(NULL, "%s", _("missing argument"));
         goto cleanup;
+    }
 
     virBufferVSprintf(&buf, "<pool type='%s'>\n", type);
     virBufferVSprintf(&buf, "  <name>%s</name>\n", name);
@@ -6129,8 +6143,10 @@ cmdPoolDiscoverSourcesAs(vshControl * ctl, const vshCmd * cmd ATTRIBUTE_UNUSED)
 
     if (vshCommandOptString(cmd, "type", &type) <= 0 ||
         vshCommandOptString(cmd, "host", &host) < 0 ||
-        vshCommandOptString(cmd, "initiator", &initiator) < 0)
+        vshCommandOptString(cmd, "initiator", &initiator) < 0) {
+        vshError(ctl,"%s", _("missing argument"));
         return FALSE;
+    }
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
@@ -6201,8 +6217,10 @@ cmdPoolDiscoverSources(vshControl * ctl, const vshCmd * cmd ATTRIBUTE_UNUSED)
     if (vshCommandOptString(cmd, "type", &type) <= 0)
         return FALSE;
 
-    if (vshCommandOptString(cmd, "srcSpec", &srcSpecFile) < 0)
+    if (vshCommandOptString(cmd, "srcSpec", &srcSpecFile) < 0) {
+        vshError(ctl, "%s", _("missing option"));
         return FALSE;
+    }
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return FALSE;
@@ -8647,8 +8665,10 @@ cmdAttachInterface(vshControl *ctl, const vshCmd *cmd)
         vshCommandOptString(cmd, "target", &target) < 0 ||
         vshCommandOptString(cmd, "mac", &mac) < 0 ||
         vshCommandOptString(cmd, "script", &script) < 0 ||
-        vshCommandOptString(cmd, "model", &model) < 0)
+        vshCommandOptString(cmd, "model", &model) < 0) {
+        vshError(ctl, "missing argument");
         goto cleanup;
+    }
 
     /* check interface type */
     if (STREQ(type, "network")) {
@@ -8754,8 +8774,10 @@ cmdDetachInterface(vshControl *ctl, const vshCmd *cmd)
     if (vshCommandOptString(cmd, "type", &type) <= 0)
         goto cleanup;
 
-    if (vshCommandOptString(cmd, "mac", &mac) < 0)
+    if (vshCommandOptString(cmd, "mac", &mac) < 0) {
+        vshError(ctl, "%s", _("missing option"));
         goto cleanup;
+    }
 
     doc = virDomainGetXMLDesc(dom, 0);
     if (!doc)
@@ -8905,6 +8927,7 @@ cmdAttachDisk(vshControl *ctl, const vshCmd *cmd)
         vshCommandOptString(cmd, "type", &type) < 0 ||
         vshCommandOptString(cmd, "mode", &mode) < 0 ||
         vshCommandOptString(cmd, "sourcetype", &stype) < 0) {
+        vshError(ctl, "%s", _("missing option"));
         goto cleanup;
     }
 
@@ -11053,8 +11076,10 @@ vshCommandOptVolBy(vshControl *ctl, const vshCmd *cmd,
     if (vshCommandOptString(cmd, optname, &n) <= 0)
         return NULL;
 
-    if (vshCommandOptString(cmd, pooloptname, &p) < 0)
+    if (vshCommandOptString(cmd, pooloptname, &p) < 0) {
+        vshError(ctl, "%s", _("missing option"));
         return NULL;
+    }
 
     if (p)
         pool = vshCommandOptPoolBy(ctl, cmd, pooloptname, name, flag);

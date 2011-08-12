@@ -1031,6 +1031,7 @@ struct _virDomainDef {
         unsigned long max_balloon;
         unsigned long cur_balloon;
         unsigned long hugepage_backed;
+        unsigned long ksm_disabled;
         unsigned long hard_limit;
         unsigned long soft_limit;
         unsigned long min_guarantee;

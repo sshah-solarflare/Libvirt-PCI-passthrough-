@@ -885,6 +885,9 @@ qemuCapsComputeCmdFlags(const char *help,
         strstr(help, "sockets="))
         flags |= QEMUD_CMD_FLAG_SMP_TOPOLOGY;
 
+    if (strstr(help, "-redhat-disable-KSM"))
+        flags |= QEMUD_CMD_FLAG_DISABLE_KSM;
+
     if (version >= 9000)
         flags |= QEMUD_CMD_FLAG_VNC_COLON;
 

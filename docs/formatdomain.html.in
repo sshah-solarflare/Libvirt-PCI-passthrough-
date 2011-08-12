@@ -217,10 +217,12 @@
         up the guests memory on the fly. If this is omitted, it defaults
         to the same value as the <code>memory<code> element</dd>
       <dt><code>memoryBacking</code></dt>
-      <dd>The optional <code>memoryBacking</code> element, may have an
-        <code>hugepages</code> element set within it. This tells the
-        hypervisor that the guest should have its memory allocated using
-        hugepages instead of the normal native page size.</dd>
+      <dd>The optional <code>memoryBacking</code> element has two
+        optional elements. The element <code>hugepages</code> tells
+        the hypervisor that the guest should have its memory allocated
+        using hugepages instead of the normal native page size, And the
+        optional element <code>nosharepages</code> tells the hypervisor
+        that share pages (KSM) should be disabled on guest startup</dd>
       <dt><code>memtune</code></dt>
       <dd> The optional <code>memtune</code> element provides details
       regarding the memory tuneable parameters for the domain. If this is

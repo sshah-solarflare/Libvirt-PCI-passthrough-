@@ -1064,7 +1064,7 @@ int virCgroupGetSwapHardLimit(virCgroupPtr group, unsigned long long *kb)
 /**
  * virCgroupDenyAllDevices:
  *
- * @group: The cgroup to deny devices for
+ * @group: The cgroup to deny all permissions, for all devices
  *
  * Returns: 0 on success
  */
@@ -1083,15 +1083,20 @@ int virCgroupDenyAllDevices(virCgroupPtr group)
  * @type: The device type (i.e., 'c' or 'b')
  * @major: The major number of the device
  * @minor: The minor number of the device
+ * @perms: Bitwise or of VIR_CGROUP_DEVICE permission bits to allow
  *
  * Returns: 0 on success
  */
-int virCgroupAllowDevice(virCgroupPtr group, char type, int major, int minor)
+int virCgroupAllowDevice(virCgroupPtr group, char type, int major, int minor,
+                         int perms)
 {
     int rc;
     char *devstr = NULL;
 
-    if (virAsprintf(&devstr, "%c %i:%i rwm", type, major, minor) == -1) {
+    if (virAsprintf(&devstr, "%c %i:%i %s%s%s", type, major, minor,
+                    perms & VIR_CGROUP_DEVICE_READ ? "r" : "",
+                    perms & VIR_CGROUP_DEVICE_WRITE ? "w" : "",
+                    perms & VIR_CGROUP_DEVICE_MKNOD ? "m" : "") == -1) {
         rc = -ENOMEM;
         goto out;
     }
@@ -1112,15 +1117,20 @@ out:
  * @group: The cgroup to allow an entire device major type for
  * @type: The device type (i.e., 'c' or 'b')
  * @major: The major number of the device type
+ * @perms: Bitwise or of VIR_CGROUP_DEVICE permission bits to allow
  *
  * Returns: 0 on success
  */
-int virCgroupAllowDeviceMajor(virCgroupPtr group, char type, int major)
+int virCgroupAllowDeviceMajor(virCgroupPtr group, char type, int major,
+                              int perms)
 {
     int rc;
     char *devstr = NULL;
 
-    if (virAsprintf(&devstr, "%c %i:* rwm", type, major) == -1) {
+    if (virAsprintf(&devstr, "%c %i:* %s%s%s", type, major,
+                    perms & VIR_CGROUP_DEVICE_READ ? "r" : "",
+                    perms & VIR_CGROUP_DEVICE_WRITE ? "w" : "",
+                    perms & VIR_CGROUP_DEVICE_MKNOD ? "m" : "") == -1) {
         rc = -ENOMEM;
         goto out;
     }
@@ -1140,6 +1150,7 @@ int virCgroupAllowDeviceMajor(virCgroupPtr group, char type, int major)
  *
  * @group: The cgroup to allow the device for
  * @path: the device to allow
+ * @perms: Bitwise or of VIR_CGROUP_DEVICE permission bits to allow
  *
  * Queries the type of device and its major/minor number, and
  * adds that to the cgroup ACL
@@ -1148,7 +1159,7 @@ int virCgroupAllowDeviceMajor(virCgroupPtr group, char type, int major)
  * negative errno value on failure
  */
 #if defined(major) && defined(minor)
-int virCgroupAllowDevicePath(virCgroupPtr group, const char *path)
+int virCgroupAllowDevicePath(virCgroupPtr group, const char *path, int perms)
 {
     struct stat sb;
 
@@ -1161,11 +1172,13 @@ int virCgroupAllowDevicePath(virCgroupPtr group, const char *path)
     return virCgroupAllowDevice(group,
                                 S_ISCHR(sb.st_mode) ? 'c' : 'b',
                                 major(sb.st_rdev),
-                                minor(sb.st_rdev));
+                                minor(sb.st_rdev),
+                                perms);
 }
 #else
 int virCgroupAllowDevicePath(virCgroupPtr group ATTRIBUTE_UNUSED,
-                             const char *path ATTRIBUTE_UNUSED)
+                             const char *path ATTRIBUTE_UNUSED,
+                             int perms ATTRIBUTE_UNUSED)
 {
     return -ENOSYS;
 }
@@ -1179,15 +1192,20 @@ int virCgroupAllowDevicePath(virCgroupPtr group ATTRIBUTE_UNUSED,
  * @type: The device type (i.e., 'c' or 'b')
  * @major: The major number of the device
  * @minor: The minor number of the device
+ * @perms: Bitwise or of VIR_CGROUP_DEVICE permission bits to deny
  *
  * Returns: 0 on success
  */
-int virCgroupDenyDevice(virCgroupPtr group, char type, int major, int minor)
+int virCgroupDenyDevice(virCgroupPtr group, char type, int major, int minor,
+                        int perms)
 {
     int rc;
     char *devstr = NULL;
 
-    if (virAsprintf(&devstr, "%c %i:%i rwm", type, major, minor) == -1) {
+    if (virAsprintf(&devstr, "%c %i:%i %s%s%s", type, major, minor,
+                    perms & VIR_CGROUP_DEVICE_READ ? "r" : "",
+                    perms & VIR_CGROUP_DEVICE_WRITE ? "w" : "",
+                    perms & VIR_CGROUP_DEVICE_MKNOD ? "m" : "") == -1) {
         rc = -ENOMEM;
         goto out;
     }
@@ -1208,15 +1226,20 @@ out:
  * @group: The cgroup to deny an entire device major type for
  * @type: The device type (i.e., 'c' or 'b')
  * @major: The major number of the device type
+ * @perms: Bitwise or of VIR_CGROUP_DEVICE permission bits to deny
  *
  * Returns: 0 on success
  */
-int virCgroupDenyDeviceMajor(virCgroupPtr group, char type, int major)
+int virCgroupDenyDeviceMajor(virCgroupPtr group, char type, int major,
+                             int perms)
 {
     int rc;
     char *devstr = NULL;
 
-    if (virAsprintf(&devstr, "%c %i:* rwm", type, major) == -1) {
+    if (virAsprintf(&devstr, "%c %i:* %s%s%s", type, major,
+                    perms & VIR_CGROUP_DEVICE_READ ? "r" : "",
+                    perms & VIR_CGROUP_DEVICE_WRITE ? "w" : "",
+                    perms & VIR_CGROUP_DEVICE_MKNOD ? "m" : "") == -1) {
         rc = -ENOMEM;
         goto out;
     }
@@ -1232,7 +1255,7 @@ int virCgroupDenyDeviceMajor(virCgroupPtr group, char type, int major)
 }
 
 #if defined(major) && defined(minor)
-int virCgroupDenyDevicePath(virCgroupPtr group, const char *path)
+int virCgroupDenyDevicePath(virCgroupPtr group, const char *path, int perms)
 {
     struct stat sb;
 
@@ -1245,11 +1268,13 @@ int virCgroupDenyDevicePath(virCgroupPtr group, const char *path)
     return virCgroupDenyDevice(group,
                                S_ISCHR(sb.st_mode) ? 'c' : 'b',
                                major(sb.st_rdev),
-                               minor(sb.st_rdev));
+                               minor(sb.st_rdev),
+                               perms);
 }
 #else
 int virCgroupDenyDevicePath(virCgroupPtr group ATTRIBUTE_UNUSED,
-                            const char *path ATTRIBUTE_UNUSED)
+                            const char *path ATTRIBUTE_UNUSED,
+                            int perms ATTRIBUTE_UNUSED)
 {
     return -ENOSYS;
 }

@@ -482,6 +482,7 @@ mymain(int argc, char **argv)
             QEMUD_CMD_FLAG_CCID_PASSTHRU |
             QEMUD_CMD_FLAG_CHARDEV_SPICEVMC |
             QEMUD_CMD_FLAG_VIRTIO_TX_ALG |
+            QEMUD_CMD_FLAG_DEVICE_QXL_VGA |
             QEMUD_CMD_FLAG_DISABLE_KSM,
             12001, 1,  0);
 

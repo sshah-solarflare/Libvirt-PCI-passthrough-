@@ -355,6 +355,11 @@ mymain(int argc, char **argv)
             QEMUD_CMD_FLAG_VGA | QEMUD_CMD_FLAG_VGA_QXL |
             QEMUD_CMD_FLAG_DEVICE | QEMUD_CMD_FLAG_SPICE, false);
 
+    DO_TEST("graphics-spice-qxl-vga",
+            QEMUD_CMD_FLAG_VGA | QEMUD_CMD_FLAG_VGA_QXL |
+            QEMUD_CMD_FLAG_DEVICE | QEMUD_CMD_FLAG_SPICE |
+            QEMUD_CMD_FLAG_DEVICE_QXL_VGA, false);
+
     DO_TEST("input-usbmouse", 0, false);
     DO_TEST("input-usbtablet", 0, false);
     DO_TEST("input-xen", QEMUD_CMD_FLAG_DOMID, true);

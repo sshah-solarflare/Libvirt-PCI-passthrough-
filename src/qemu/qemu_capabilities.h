@@ -93,6 +93,7 @@ enum qemuCapsFlags {
     QEMUD_CMD_FLAG_CHARDEV_SPICEVMC = (1LL << 56), /* newer -chardev spicevmc */
     QEMUD_CMD_FLAG_DEVICE_SPICEVMC = (1LL << 57), /* older -device spicevmc*/
     QEMUD_CMD_FLAG_VIRTIO_TX_ALG = (1LL << 58), /* -device virtio-net-pci,tx=string */
+    QEMUD_CMD_FLAG_DEVICE_QXL_VGA = (1LL << 59), /* Is the primary and vga campatible qxl device named qxl-vga? */
     QEMUD_CMD_FLAG_DISABLE_KSM   = (1LL << 63), /* Is '-redhat-disable-KSM' available? */
 };
 

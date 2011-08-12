@@ -319,7 +319,7 @@ done:
 
 static int
 qemuSecurityDACSetChardevLabel(virDomainObjPtr vm,
-                               virDomainChrDefPtr dev)
+                               virDomainChrSourceDefPtr dev)
 
 {
     const virSecurityLabelDefPtr secdef = &vm->def->seclabel;
@@ -360,7 +360,7 @@ done:
 
 static int
 qemuSecurityDACRestoreChardevLabel(virDomainObjPtr vm,
-                                   virDomainChrDefPtr dev)
+                                   virDomainChrSourceDefPtr dev)
 
 {
     const virSecurityLabelDefPtr secdef = &vm->def->seclabel;
@@ -407,7 +407,7 @@ qemuSecurityDACRestoreChardevCallback(virDomainDefPtr def ATTRIBUTE_UNUSED,
 {
     virDomainObjPtr vm = opaque;
 
-    return qemuSecurityDACRestoreChardevLabel(vm, dev);
+    return qemuSecurityDACRestoreChardevLabel(vm, &dev->source);
 }
 
 
@@ -464,7 +464,7 @@ qemuSecurityDACSetChardevCallback(virDomainDefPtr def ATTRIBUTE_UNUSED,
 {
     virDomainObjPtr vm = opaque;
 
-    return qemuSecurityDACSetChardevLabel(vm, dev);
+    return qemuSecurityDACSetChardevLabel(vm, &dev->source);
 }
 
 

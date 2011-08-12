@@ -1,7 +1,7 @@
 /*
  * driver.c: core driver methods for managing qemu guests
  *
- * Copyright (C) 2006, 2007, 2008, 2009, 2010 Red Hat, Inc.
+ * Copyright (C) 2006-2011 Red Hat, Inc.
  * Copyright (C) 2006 Daniel P. Berrange
  *
  * This library is free software; you can redistribute it and/or
@@ -2114,7 +2114,7 @@ qemudFindCharDevicePTYsMonitor(virDomainObjPtr vm,
 #define LOOKUP_PTYS(array, arraylen, idprefix)                            \
     for (i = 0 ; i < (arraylen) ; i++) {                                  \
         virDomainChrDefPtr chr = (array)[i];                              \
-        if (chr->type == VIR_DOMAIN_CHR_TYPE_PTY) {                       \
+        if (chr->source.type == VIR_DOMAIN_CHR_TYPE_PTY) {                \
             char id[16];                                                  \
                                                                           \
             if (snprintf(id, sizeof(id), idprefix "%i", i) >= sizeof(id)) \
@@ -2122,7 +2122,7 @@ qemudFindCharDevicePTYsMonitor(virDomainObjPtr vm,
                                                                           \
             const char *path = (const char *) virHashLookup(paths, id);   \
             if (path == NULL) {                                           \
-                if (chr->data.file.path == NULL) {                        \
+                if (chr->source.data.file.path == NULL) {                 \
                     /* neither the log output nor 'info chardev' had a */ \
                     /* pty path for this chardev, report an error */      \
                     qemuReportError(VIR_ERR_INTERNAL_ERROR,               \
@@ -2135,10 +2135,10 @@ qemudFindCharDevicePTYsMonitor(virDomainObjPtr vm,
                 }                                                         \
             }                                                             \
                                                                           \
-            VIR_FREE(chr->data.file.path);                                \
-            chr->data.file.path = strdup(path);                           \
+            VIR_FREE(chr->source.data.file.path);                         \
+            chr->source.data.file.path = strdup(path);                    \
                                                                           \
-            if (chr->data.file.path == NULL) {                            \
+            if (chr->source.data.file.path == NULL) {                     \
                 virReportOOMError();                                      \
                 return -1;                                                \
             }                                                             \
@@ -2170,9 +2170,9 @@ qemudFindCharDevicePTYs(virDomainObjPtr vm,
     /* first comes the serial devices */
     for (i = 0 ; i < vm->def->nserials ; i++) {
         virDomainChrDefPtr chr = vm->def->serials[i];
-        if (chr->type == VIR_DOMAIN_CHR_TYPE_PTY) {
+        if (chr->source.type == VIR_DOMAIN_CHR_TYPE_PTY) {
             if ((ret = qemudExtractTTYPath(output, &offset,
-                                           &chr->data.file.path)) != 0)
+                                           &chr->source.data.file.path)) != 0)
                 return ret;
         }
     }
@@ -2180,9 +2180,9 @@ qemudFindCharDevicePTYs(virDomainObjPtr vm,
     /* then the parallel devices */
     for (i = 0 ; i < vm->def->nparallels ; i++) {
         virDomainChrDefPtr chr = vm->def->parallels[i];
-        if (chr->type == VIR_DOMAIN_CHR_TYPE_PTY) {
+        if (chr->source.type == VIR_DOMAIN_CHR_TYPE_PTY) {
             if ((ret = qemudExtractTTYPath(output, &offset,
-                                           &chr->data.file.path)) != 0)
+                                           &chr->source.data.file.path)) != 0)
                 return ret;
         }
     }
@@ -2190,9 +2190,9 @@ qemudFindCharDevicePTYs(virDomainObjPtr vm,
     /* then the channel devices */
     for (i = 0 ; i < vm->def->nchannels ; i++) {
         virDomainChrDefPtr chr = vm->def->channels[i];
-        if (chr->type == VIR_DOMAIN_CHR_TYPE_PTY) {
+        if (chr->source.type == VIR_DOMAIN_CHR_TYPE_PTY) {
             if ((ret = qemudExtractTTYPath(output, &offset,
-                                           &chr->data.file.path)) != 0)
+                                           &chr->source.data.file.path)) != 0)
                 return ret;
         }
     }
@@ -2936,13 +2936,14 @@ qemuPrepareChardevDevice(virDomainDefPtr def ATTRIBUTE_UNUSED,
                          void *opaque ATTRIBUTE_UNUSED)
 {
     int fd;
-    if (dev->type != VIR_DOMAIN_CHR_TYPE_FILE)
+    if (dev->source.type != VIR_DOMAIN_CHR_TYPE_FILE)
         return 0;
 
-    if ((fd = open(dev->data.file.path, O_CREAT | O_APPEND, S_IRUSR|S_IWUSR)) < 0) {
+    if ((fd = open(dev->source.data.file.path,
+                   O_CREAT | O_APPEND, S_IRUSR|S_IWUSR)) < 0) {
         virReportSystemError(errno,
                              _("Unable to pre-create chardev file '%s'"),
-                             dev->data.file.path);
+                             dev->source.data.file.path);
         return -1;
     }
 
@@ -2987,15 +2988,15 @@ qemuPrepareMonitorChr(struct qemud_driver *driver,
 {
     monConfig->deviceType = VIR_DOMAIN_CHR_DEVICE_TYPE_MONITOR;
 
-    monConfig->type = VIR_DOMAIN_CHR_TYPE_UNIX;
-    monConfig->data.nix.listen = 1;
+    monConfig->source.type = VIR_DOMAIN_CHR_TYPE_UNIX;
+    monConfig->source.data.nix.listen = true;
 
     if (!(monConfig->info.alias = strdup("monitor"))) {
         virReportOOMError();
         return -1;
     }
 
-    if (virAsprintf(&monConfig->data.nix.path, "%s/%s.monitor",
+    if (virAsprintf(&monConfig->source.data.nix.path, "%s/%s.monitor",
                     driver->libDir, vm) < 0) {
         virReportOOMError();
         return -1;
@@ -3462,8 +3463,8 @@ static void qemudShutdownVMDaemon(struct qemud_driver *driver,
         qemuMonitorClose(priv->mon);
 
     if (priv->monConfig) {
-        if (priv->monConfig->type == VIR_DOMAIN_CHR_TYPE_UNIX)
-            unlink(priv->monConfig->data.nix.path);
+        if (priv->monConfig->source.type == VIR_DOMAIN_CHR_TYPE_UNIX)
+            unlink(priv->monConfig->source.data.nix.path);
         virDomainChrDefFree(priv->monConfig);
         priv->monConfig = NULL;
     }
@@ -10882,14 +10883,14 @@ qemuDomainOpenConsole(virDomainPtr dom,
         goto cleanup;
     }
 
-    if (chr->type != VIR_DOMAIN_CHR_TYPE_PTY) {
+    if (chr->source.type != VIR_DOMAIN_CHR_TYPE_PTY) {
         qemuReportError(VIR_ERR_INTERNAL_ERROR,
                         _("character device %s is not using a PTY"),
                         NULLSTR(devname));
         goto cleanup;
     }
 
-    if (virFDStreamOpenFile(st, chr->data.file.path, O_RDWR) < 0)
+    if (virFDStreamOpenFile(st, chr->source.data.file.path, O_RDWR) < 0)
         goto cleanup;
 
     ret = 0;

@@ -46,6 +46,8 @@
 #include <sys/un.h>
 #include <gnutls/gnutls.h>
 #include <gnutls/x509.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 
 #include "virterror_internal.h"
@@ -2990,6 +2992,25 @@ qemuPrepareChardevDevice(virDomainDefPtr def ATTRIBUTE_UNUSED,
 }
 
 
+static int
+qemuProcessLimits(struct qemud_driver *driver)
+{
+    if (driver->maxProcesses > 0) {
+        struct rlimit rlim;
+
+        rlim.rlim_cur = rlim.rlim_max = driver->maxProcesses;
+        if (setrlimit(RLIMIT_NPROC, &rlim) < 0) {
+            virReportSystemError(errno,
+                                 _("cannot limit number of processes to %d"),
+                                 driver->maxProcesses);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+
 struct qemudHookData {
     virConnectPtr conn;
     virDomainObjPtr vm;
@@ -2998,6 +3019,9 @@ struct qemudHookData {
 
 static int qemudSecurityHook(void *data) {
     struct qemudHookData *h = data;
+
+    if (qemuProcessLimits(h->driver) < 0)
+        return -1;
 
     /* This must take place before exec(), so that all QEMU
      * memory allocation is on the correct NUMA node

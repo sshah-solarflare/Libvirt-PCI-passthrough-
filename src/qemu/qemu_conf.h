@@ -106,6 +106,8 @@ struct qemud_driver {
     unsigned int allowDiskFormatProbing : 1;
     unsigned int setProcessName : 1;
 
+    int maxProcesses;
+
     virCapsPtr caps;
 
     /* An array of callbacks */

@@ -1902,6 +1902,13 @@ qemuBuildVideoDevStr(virDomainVideoDefPtr video,
     virBufferVSprintf(&buf, ",id=%s", video->info.alias);
 
     if (video->type == VIR_DOMAIN_VIDEO_TYPE_QXL) {
+        if (video->vram > (UINT_MAX / 1024)) {
+            qemuReportError(VIR_ERR_INVALID_ARG,
+                            _("value for 'vram' must be less than '%u'"),
+                            UINT_MAX / 1024);
+            goto error;
+        }
+
         /* QEMU accepts bytes for vram_size. */
         virBufferVSprintf(&buf, ",vram_size=%u", video->vram * 1024);
     }
@@ -4012,6 +4019,13 @@ qemuBuildCommandLine(virConnectPtr conn,
                 if (def->videos[0]->type == VIR_DOMAIN_VIDEO_TYPE_QXL) {
                     if (def->videos[0]->vram &&
                         (qemuCmdFlags & QEMUD_CMD_FLAG_DEVICE)) {
+                        if (def->videos[0]->vram > (UINT_MAX / 1024)) {
+                            qemuReportError(VIR_ERR_INVALID_ARG,
+                                            _("value for 'vram' must be less than '%u'"),
+                                            UINT_MAX / 1024);
+                            goto error;
+                        }
+
                         virCommandAddArg(cmd, "-global");
                         if (qemuCmdFlags & QEMUD_CMD_FLAG_DEVICE_QXL_VGA)
                             virCommandAddArgFormat(cmd, "qxl-vga.vram_size=%u",

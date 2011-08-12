@@ -1,7 +1,7 @@
 /*
  * network_conf.c: network XML handling
  *
- * Copyright (C) 2006-2010 Red Hat, Inc.
+ * Copyright (C) 2006-2011 Red Hat, Inc.
  * Copyright (C) 2006-2008 Daniel P. Berrange
  *
  * This library is free software; you can redistribute it and/or
@@ -659,6 +659,7 @@ virNetworkDefParseXML(xmlXPathContextPtr ctxt)
             def->nips++;
         }
     }
+    VIR_FREE(ipNodes);
 
     /* IPv4 forwarding setup */
     if (virXPathBoolean("count(./forward) > 0", ctxt)) {
@@ -690,6 +691,7 @@ virNetworkDefParseXML(xmlXPathContextPtr ctxt)
 
  error:
     virNetworkDefFree(def);
+    VIR_FREE(ipNodes);
     return NULL;
 }
 

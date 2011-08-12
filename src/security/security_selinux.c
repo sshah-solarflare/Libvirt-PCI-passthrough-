@@ -795,6 +795,38 @@ SELinuxRestoreSecurityChardevCallback(virDomainDefPtr def ATTRIBUTE_UNUSED,
 
 
 static int
+SELinuxRestoreSecuritySmartcardCallback(virDomainDefPtr def ATTRIBUTE_UNUSED,
+                                        virDomainSmartcardDefPtr dev,
+                                        void *opaque)
+{
+    virDomainObjPtr vm = opaque;
+    const char *database;
+
+    switch (dev->type) {
+    case VIR_DOMAIN_SMARTCARD_TYPE_HOST:
+        break;
+
+    case VIR_DOMAIN_SMARTCARD_TYPE_HOST_CERTIFICATES:
+        database = dev->data.cert.database;
+        if (!database)
+            database = VIR_DOMAIN_SMARTCARD_DEFAULT_DATABASE;
+        return SELinuxRestoreSecurityFileLabel(database);
+
+    case VIR_DOMAIN_SMARTCARD_TYPE_PASSTHROUGH:
+        return SELinuxRestoreSecurityChardevLabel(vm, &dev->data.passthru);
+
+    default:
+        virSecurityReportError(VIR_ERR_INTERNAL_ERROR,
+                               _("unknown smartcard type %d"),
+                               dev->type);
+        return -1;
+    }
+
+    return 0;
+}
+
+
+static int
 SELinuxRestoreSecurityAllLabel(virSecurityDriverPtr drv ATTRIBUTE_UNUSED,
                                virDomainObjPtr vm,
                                int migrated ATTRIBUTE_UNUSED)
@@ -826,6 +858,12 @@ SELinuxRestoreSecurityAllLabel(virSecurityDriverPtr drv ATTRIBUTE_UNUSED,
                                false,
                                SELinuxRestoreSecurityChardevCallback,
                                vm) < 0)
+        rc = -1;
+
+    if (virDomainSmartcardDefForeach(vm->def,
+                                     false,
+                                     SELinuxRestoreSecuritySmartcardCallback,
+                                     vm) < 0)
         rc = -1;
 
     if (vm->def->os.kernel &&
@@ -1050,6 +1088,38 @@ SELinuxSetSecurityChardevCallback(virDomainDefPtr def ATTRIBUTE_UNUSED,
 
 
 static int
+SELinuxSetSecuritySmartcardCallback(virDomainDefPtr def ATTRIBUTE_UNUSED,
+                                    virDomainSmartcardDefPtr dev,
+                                    void *opaque)
+{
+    virDomainObjPtr vm = opaque;
+    const char *database;
+
+    switch (dev->type) {
+    case VIR_DOMAIN_SMARTCARD_TYPE_HOST:
+        break;
+
+    case VIR_DOMAIN_SMARTCARD_TYPE_HOST_CERTIFICATES:
+        database = dev->data.cert.database;
+        if (!database)
+            database = VIR_DOMAIN_SMARTCARD_DEFAULT_DATABASE;
+        return SELinuxSetFilecon(database, default_content_context);
+
+    case VIR_DOMAIN_SMARTCARD_TYPE_PASSTHROUGH:
+        return SELinuxSetSecurityChardevLabel(vm, &dev->data.passthru);
+
+    default:
+        virSecurityReportError(VIR_ERR_INTERNAL_ERROR,
+                               _("unknown smartcard type %d"),
+                               dev->type);
+        return -1;
+    }
+
+    return 0;
+}
+
+
+static int
 SELinuxSetSecurityAllLabel(virSecurityDriverPtr drv,
                            virDomainObjPtr vm,
                            const char *stdin_path)
@@ -1082,6 +1152,12 @@ SELinuxSetSecurityAllLabel(virSecurityDriverPtr drv,
                                true,
                                SELinuxSetSecurityChardevCallback,
                                vm) < 0)
+        return -1;
+
+    if (virDomainSmartcardDefForeach(vm->def,
+                                     true,
+                                     SELinuxSetSecuritySmartcardCallback,
+                                     vm) < 0)
         return -1;
 
     if (vm->def->os.kernel &&

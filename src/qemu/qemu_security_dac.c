@@ -555,6 +555,12 @@ qemuSecurityDACSetProcessLabel(virSecurityDriverPtr drv ATTRIBUTE_UNUSED,
     return 0;
 }
 
+static int
+qemuSecurityDACSetFDLabel(virDomainObjPtr vm ATTRIBUTE_UNUSED,
+                         int fd ATTRIBUTE_UNUSED)
+{
+    return 0;
+}
 
 
 virSecurityDriver qemuDACSecurityDriver = {
@@ -573,4 +579,5 @@ virSecurityDriver qemuDACSecurityDriver = {
 
     .domainSetSavedStateLabel = qemuSecurityDACSetSavedStateLabel,
     .domainRestoreSavedStateLabel = qemuSecurityDACRestoreSavedStateLabel,
+    .domainSetSecurityFDLabel = qemuSecurityDACSetFDLabel,
 };

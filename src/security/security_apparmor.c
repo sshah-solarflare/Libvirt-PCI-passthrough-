@@ -769,6 +769,13 @@ AppArmorRestoreSavedStateLabel(virSecurityDriverPtr drv,
     return reload_profile(drv, vm, NULL, false);
 }
 
+static int
+AppArmorSetFDLabel(virDomainObjPtr vm ATTRIBUTE_UNUSED,
+                   int fd ATTRIBUTE_UNUSED)
+{
+    return 0;
+}
+
 virSecurityDriver virAppArmorSecurityDriver = {
     .name = SECURITY_APPARMOR_NAME,
     .probe = AppArmorSecurityDriverProbe,
@@ -787,4 +794,5 @@ virSecurityDriver virAppArmorSecurityDriver = {
     .domainRestoreSecurityHostdevLabel = AppArmorRestoreSecurityHostdevLabel,
     .domainSetSavedStateLabel = AppArmorSetSavedStateLabel,
     .domainRestoreSavedStateLabel = AppArmorRestoreSavedStateLabel,
+    .domainSetSecurityFDLabel = AppArmorSetFDLabel,
 };

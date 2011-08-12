@@ -76,6 +76,9 @@ typedef int (*virSecurityDomainSetProcessLabel) (virSecurityDriverPtr drv,
                                                  virDomainObjPtr vm);
 typedef int (*virSecurityDomainSecurityVerify) (virDomainDefPtr def);
 
+typedef int (*virSecurityDomainSetFDLabel) (virDomainObjPtr vm,
+                                            int fd);
+
 struct _virSecurityDriver {
     const char *name;
     virSecurityDriverProbe probe;
@@ -96,7 +99,7 @@ struct _virSecurityDriver {
     virSecurityDomainSetHostdevLabel domainSetSecurityHostdevLabel;
     virSecurityDomainSetSavedStateLabel domainSetSavedStateLabel;
     virSecurityDomainRestoreSavedStateLabel domainRestoreSavedStateLabel;
-
+    virSecurityDomainSetFDLabel domainSetSecurityFDLabel;
     /*
      * This is internally managed driver state and should only be accessed
      * via helpers below.

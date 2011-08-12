@@ -389,6 +389,25 @@ qemuSecurityStackedClearSocketLabel(virSecurityDriverPtr drv ATTRIBUTE_UNUSED,
     return rc;
 }
 
+static int
+qemuSecurityStackedSetFDLabel(virDomainObjPtr vm,
+                              int fd)
+{
+    int rc = 0;
+
+    if (driver->securitySecondaryDriver &&
+        driver->securitySecondaryDriver->domainSetSecurityFDLabel &&
+        driver->securitySecondaryDriver->domainSetSecurityFDLabel(vm, fd) < 0)
+        rc = -1;
+
+    if (driver->securityPrimaryDriver &&
+        driver->securityPrimaryDriver->domainSetSecurityFDLabel &&
+        driver->securityPrimaryDriver->domainSetSecurityFDLabel(vm, fd) < 0)
+        rc = -1;
+
+    return rc;
+}
+
 
 virSecurityDriver qemuStackedSecurityDriver = {
     .name                       = "qemuStacked",
@@ -415,4 +434,5 @@ virSecurityDriver qemuStackedSecurityDriver = {
 
     .domainClearSecuritySocketLabel = qemuSecurityStackedClearSocketLabel,
     .domainSetSecuritySocketLabel = qemuSecurityStackedSetSocketLabel,
+    .domainSetSecurityFDLabel = qemuSecurityStackedSetFDLabel,
 };

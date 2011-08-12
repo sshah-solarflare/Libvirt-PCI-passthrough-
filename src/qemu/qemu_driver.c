@@ -2405,8 +2405,8 @@ qemuInitPasswords(virConnectPtr conn,
         } else if (vm->def->graphics[0]->type == VIR_DOMAIN_GRAPHICS_TYPE_SPICE) {
             ret = qemuInitGraphicsPasswords(driver, vm,
                                             VIR_DOMAIN_GRAPHICS_TYPE_SPICE,
-                                            &vm->def->graphics[0]->data.vnc.auth,
-                                            driver->vncPassword);
+                                            &vm->def->graphics[0]->data.spice.auth,
+                                            driver->spicePassword);
         }
     }
 

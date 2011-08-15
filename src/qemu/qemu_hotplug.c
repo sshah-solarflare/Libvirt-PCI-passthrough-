@@ -878,6 +878,9 @@ int qemuDomainAttachHostPciDevice(struct qemud_driver *driver,
     VIR_FREE(configfd_name);
     VIR_FORCE_CLOSE(configfd);
 
+    /* Don't issue back to back attach/detach */
+    sleep(1);
+
     return 0;
 
 error:
@@ -1688,6 +1691,9 @@ int qemuDomainDetachHostPciDevice(struct qemud_driver *driver,
         vm->def->nhostdevs = 0;
     }
     virDomainHostdevDefFree(detach);
+
+    /* Don't issue back to back attach/detach */
+    sleep(1);
 
     return ret;
 }

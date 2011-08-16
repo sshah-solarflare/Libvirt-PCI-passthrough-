@@ -955,6 +955,8 @@
                 <attribute name="mode">
                   <ref name="bridgeMode"/>
                 </attribute>
+	      </optional>
+	      <optional>
                 <attribute name="vf_fallback_mode">
                   <ref name="fallbackMode"/>
                 </attribute>

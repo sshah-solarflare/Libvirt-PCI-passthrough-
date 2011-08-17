@@ -227,6 +227,7 @@ char *virStrcpy(char *dest, const char *src, size_t destbytes)
 # define virStrcpyStatic(dest, src) virStrcpy((dest), (src), sizeof(dest))
 
 # define VIR_MAC_BUFLEN 6
+# define VIR_VLAN_BUFLEN 20
 # define VIR_MAC_PREFIX_BUFLEN 3
 # define VIR_MAC_STRING_BUFLEN VIR_MAC_BUFLEN * 3
 

@@ -80,7 +80,7 @@ int pciWaitForDeviceCleanup(pciDevice *dev, const char *matcher);
 
 int pciDeviceIsVf(pciDevice *device);
 
-int pciVfGetVlanId(pciDevice *dev, unsigned int vlan_id);
+int pciVfGetVlanId(pciDevice *dev, unsigned int *result);
 
 int pciVfGetMacAddr(pciDevice *dev, unsigned char *mac);
 

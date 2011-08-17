@@ -1509,21 +1509,20 @@ int pciDeviceIsVf(pciDevice *device)
     return found;
 }
 
-int pciVfGetVlanId(pciDevice *dev, unsigned int vlan_id)
+int pciVfGetVlanId(pciDevice *dev, unsigned int *result)
 {
     char *node, *buf;
     int rc;
-    unsigned int result=0;
 
     if (virAsprintf(&node, PCI_SYSFS "devices/%s/tci", dev->name) < 0) {
         virReportOOMError();
         return -1;
     }
 
-    rc = virFileReadAll(node, 6, &buf);
-    if (rc < 0) {
+    rc = virFileReadAll(node, VIR_VLAN_BUFLEN, &buf);
+    if ((rc < 0) || (rc == 0)) {
         VIR_FREE(node);
-        return rc;
+        return -1;
     }
     VIR_FREE(node);
 
@@ -1537,19 +1536,13 @@ int pciVfGetVlanId(pciDevice *dev, unsigned int vlan_id)
         buf[rc] = '\0';
     }
     
-    while(*buf != '\0')
-    {
-        result = (result * 10) + (*buf - '0');
-        buf++;
-    }
-    
-    if (result == vlan_id)
-        rc = 0;
-    else
-        rc = -1;
+   if (virStrToLong_ui((const char *)buf, NULL, 0, result) < 0) {
+       return -1;
+   }
+   rc = 0;
 
-    VIR_FREE(buf);
-    return rc;
+   VIR_FREE(buf);
+   return rc;
 }
 
 int pciVfGetMacAddr(pciDevice *dev, unsigned char *mac)
@@ -1563,9 +1556,9 @@ int pciVfGetMacAddr(pciDevice *dev, unsigned char *mac)
     }
 
     rc = virFileReadAll(node, VIR_MAC_STRING_BUFLEN, &buf);
-    if (rc < 0) {
+    if ((rc < 0) || (rc == 0)) {
         VIR_FREE(node);
-        return rc;
+        return -1;
     }
     VIR_FREE(node);
 
@@ -1586,9 +1579,8 @@ int pciVfGetMacAddr(pciDevice *dev, unsigned char *mac)
 
 int pciVfSetMacAddr(pciDevice *dev, const unsigned char *mac, unsigned int vlan_id)
 {
-    char *node;
+    char *node, *vlanstr;
     char macstr[VIR_MAC_STRING_BUFLEN];
-    char vlanstr[6];
     int rc;
 
     if (virAsprintf(&node, PCI_SYSFS "devices/%s/mac_addr", dev->name) < 0) {
@@ -1606,7 +1598,13 @@ int pciVfSetMacAddr(pciDevice *dev, const unsigned char *mac, unsigned int vlan_
         virReportOOMError();
         return -1;
     }
-    sprintf(vlanstr,"%x",vlan_id);
+   
+
+    if (virAsprintf(&vlanstr, "%x", vlan_id) < 0) {
+        virReportOOMError();
+        return -1;
+    }
+
     rc = virFileWriteStr(node, vlanstr, 0);
 
     if (rc)

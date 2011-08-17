@@ -2640,8 +2640,6 @@ virDomainNetDefParseXML(virCapsPtr caps,
                                  (const char *)vlan_id);
             goto error;
         }
-        else
-            vlan_id = NULL;
     }
     else
         def->vlan_id = 0;

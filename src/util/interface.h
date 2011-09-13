@@ -11,6 +11,7 @@
 # define __VIR_INTERFACE_H__
 
 # include "datatypes.h"
+# include "util/pci.h"
 
 int ifaceGetFlags(const char *name, short *flags);
 int ifaceIsUp(const char *name, bool *up);
@@ -31,5 +32,9 @@ int ifaceCheck(bool reportError, const char *ifname,
 int ifaceGetIndex(bool reportError, const char *ifname, int *ifindex);
 
 int ifaceGetVlanID(const char *vlanifname, int *vlanid);
+
+pciDevice *ifaceGetVf(const char *ifname, unsigned num);
+
+pciDevice *ifaceFindReservedVf(const char *ifname, const unsigned char *mac);
 
 #endif /* __VIR_INTERFACE_H__ */

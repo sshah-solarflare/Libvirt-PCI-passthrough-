@@ -40,6 +40,10 @@
 #include "interface.h"
 #include "virterror_internal.h"
 #include "files.h"
+#include "memory.h"
+
+/* For virReportOOMError()  and virReportSystemError() */
+#define VIR_FROM_THIS VIR_FROM_NET
 
 #define ifaceError(code, ...) \
         virReportErrorHelper(NULL, VIR_FROM_NET, code, __FILE__, \
@@ -390,3 +394,54 @@ ifaceGetVlanID(const char *vlanifname ATTRIBUTE_UNUSED,
     return ENOSYS;
 }
 #endif /* __linux__ */
+
+pciDevice *
+ifaceGetVf(const char *ifname, unsigned num)
+{
+    char *node, *device, *base;
+    int ret;
+    unsigned domain, bus, slot, function;
+
+    if (virAsprintf(&node, "/sys/class/net/%s/device/virtfn%d", ifname, num) < 0) {
+        virReportOOMError();
+        return NULL;
+    }
+
+    if (virFileResolveLink(node, &device) < 0) {
+        VIR_FREE(node);
+        return NULL;
+    }
+    VIR_FREE(node);
+
+    base = basename(device);
+    ret = sscanf(base, "%04x:%02x:%02x.%01x", &domain, &bus, &slot, &function);
+    VIR_FREE(device);
+
+    if (ret != 4) {
+        virReportSystemError(errno,
+                             _("unable to parse address '%s'"), base);
+        return NULL;
+    }
+
+    return pciGetDevice(domain, bus, slot, function);
+}
+
+pciDevice *
+ifaceFindReservedVf(const char *ifname, const unsigned char *mac)
+{
+    pciDevice *dev;
+    unsigned int i;
+
+    for(i=0; (dev = ifaceGetVf(ifname, i)) != NULL; i++) {
+        unsigned char devMac[VIR_MAC_STRING_BUFLEN];
+
+        if (!pciVfGetMacAddr(dev, devMac) &&
+            !virMacAddrCompare((char *)devMac, (char *)mac)) {
+            return dev;
+        }
+        pciFreeDevice(dev);
+    }
+
+    return NULL;
+}
+

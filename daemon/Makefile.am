@@ -145,7 +145,7 @@ if WITH_NWFILTER
 endif
 endif
 
-libvirtd_LDADD += ../src/libvirt.la
+libvirtd_LDADD +=  ../src/libvirt_util.la ../src/libvirt.la
 
 if HAVE_POLKIT
 if HAVE_POLKIT0

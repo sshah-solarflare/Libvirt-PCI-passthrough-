@@ -32,6 +32,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #include "logging.h"
 #include "memory.h"
@@ -1491,3 +1492,123 @@ int pciDeviceIsAssignable(pciDevice *dev,
 
     return 1;
 }
+
+int pciVfGetMacAddr(pciDevice *dev, unsigned char *mac)
+{
+    char *node, *buf, *macstr;
+    int rc;
+
+    if (virAsprintf(&node, PCI_SYSFS "devices/%s/mac_addr", dev->name) < 0) {
+        virReportOOMError();
+        return -1;
+    }
+
+    rc = virFileReadAll(node, VIR_MAC_STRING_BUFLEN, &buf);
+    if (rc < 0) {
+        VIR_FREE(node);
+        return rc;
+    }
+    VIR_FREE(node);
+
+    /* Ensure there's a trailing NULL */
+    macstr = strndup(buf, rc + 1);
+    VIR_FREE(buf);
+    if (macstr == NULL) {
+        virReportOOMError();
+        return -1;
+    }
+
+    rc = virParseMacAddr(macstr, mac);
+    VIR_FREE(macstr);
+    return rc;
+}
+
+int pciVfSetMacAddr(pciDevice *dev, const unsigned char *mac)
+{
+    char *node;
+    char macstr[VIR_MAC_STRING_BUFLEN];
+    int rc;
+
+    if (virAsprintf(&node, PCI_SYSFS "devices/%s/mac_addr", dev->name) < 0) {
+        virReportOOMError();
+        return -1;
+    }
+
+    virFormatMacAddr(mac, macstr);
+    rc  = virFileWriteStr(node, macstr, 0);
+    VIR_FREE(node);
+
+    return rc;
+}
+
+int pciVfReserve(pciDevice *dev, const unsigned char *mac)
+{
+    unsigned char old[VIR_MAC_BUFLEN];
+    int rc;
+
+    rc = pciVfGetMacAddr(dev, old);
+    if (rc)
+        return rc;
+    if (old[0] | old[1] | old[2] | old[3] | old[4] | old[5])
+        return -1;      /* VF is not free */
+
+    if (!(mac[0] | mac[1] | mac[2] | mac[3] | mac[4] | mac[5]))
+        return -1;      /* Can't reserve a VF with a zero mac address */
+
+    return pciVfSetMacAddr(dev, mac);
+}
+
+int pciVfRelease(pciDevice *device)
+{
+    unsigned char buf[VIR_MAC_BUFLEN];
+
+    memset(buf, 0, sizeof(buf));
+    return pciVfSetMacAddr(device, buf);
+}
+
+char *pciFindIfaceName(pciDevice *device)
+{
+    DIR *dir;
+    int cmp;
+    char *node;
+    struct dirent *entry;
+    char *buf;
+
+    if (virAsprintf(&node, PCI_SYSFS "devices/%s/net", device->name) < 0) {
+        virReportOOMError();
+        return NULL;
+    }
+
+    if ((dir=opendir(node)) != NULL) {
+        VIR_FREE(node);
+        while(1) {
+            if((entry = readdir(dir)) != NULL) {
+                buf = strdup(entry->d_name);
+
+                cmp = strcmp(buf, ".");
+                if(cmp != 0) {
+                    cmp = strcmp(buf, "..");
+                    if(cmp != 0) {
+                        closedir(dir);
+                        return buf;
+                    }
+                }
+                free(buf);
+                continue;
+            }
+
+            else {
+                pciReportError(VIR_ERR_INTERNAL_ERROR,
+                           _("Failed to read directory %s"),
+                           node);
+                closedir(dir);
+                return NULL;
+            }
+        }
+    } else {
+        VIR_WARN("Failed to open directory %s", node);
+        VIR_FREE(node);
+        return NULL;
+    }
+}
+

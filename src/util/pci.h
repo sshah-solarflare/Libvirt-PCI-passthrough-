@@ -73,4 +73,14 @@ int pciDeviceIsAssignable(pciDevice *dev,
                           int strict_acs_check);
 int pciWaitForDeviceCleanup(pciDevice *dev, const char *matcher);
 
+int pciVfGetMacAddr(pciDevice *dev, unsigned char *mac);
+
+int pciVfSetMacAddr(pciDevice *dev, const unsigned char *mac);
+
+int pciVfReserve(pciDevice *dev, const unsigned char *mac);
+
+int pciVfRelease(pciDevice *dev);
+
+char *pciFindIfaceName(pciDevice *device);
+
 #endif /* __VIR_PCI_H__ */

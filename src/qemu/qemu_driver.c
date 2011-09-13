@@ -8600,9 +8600,10 @@ qemuDomainMigrateGraphicsRelocate(struct qemud_driver *driver,
     return ret;
 }
 
-static void qemuMigrationRemoveEphemeralDevices(struct qemud_driver *driver,
-                                                virDomainObjPtr vm,
-                                                unsigned long long qemuCmdFlags)
+static void
+qemuDomainMigrateRemoveEphemeralDevices(struct qemud_driver *driver,
+                                        virDomainObjPtr vm,
+                                        unsigned long long qemuCmdFlags)
 {
     virDomainHostdevDefPtr dev;
     virDomainDeviceDef def;
@@ -8621,6 +8622,67 @@ static void qemuMigrationRemoveEphemeralDevices(struct qemud_driver *driver,
              }
         }
         i++;
+    }
+}
+
+static int
+qemuDomainMigrateAttachPciDevice(struct qemud_driver *driver,
+                                 virDomainObjPtr vm,
+                                 pciDevice *dev,
+                                 unsigned long long qemuCmdFlags)
+{
+    virDomainHostdevDefPtr hostdev;
+    virDomainDevicePCIAddressPtr addr;
+
+    if (VIR_ALLOC(hostdev) < 0) {
+        virReportOOMError();
+        return -1;
+    }
+
+    hostdev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
+    hostdev->source.subsys.type =
+        VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+    addr = &hostdev->source.subsys.u.pci;
+    pciGetAddress(dev, &addr->domain, &addr->bus,
+                  &addr->slot, &addr->function);
+    if (qemuDomainAttachHostPciDevice(driver, vm, hostdev, qemuCmdFlags) < 0) {
+        VIR_FREE(hostdev);
+        return -1;
+    }
+
+    return 0;
+}
+
+/* Reattach the VFs that were present before migration */
+static void
+qemuDomainMigrateRestoreHybridVfs(struct qemud_driver *driver,
+                                  virDomainObjPtr vm,
+                                  unsigned long long qemuCmdFlags)
+{
+    virDomainNetDefPtr net;
+    pciDevice *vf;
+    int i;
+
+    /* Do nothing if any ephemeral hostdevs are still attached, in
+     * which case this function has been called before
+     * qemuDomainMigrateRemoveEphemeralDevices() */
+    for (i = 0; i < vm->def->nhostdevs; i++) {
+        if (vm->def->hostdevs[i]->ephemeral)
+            return;
+    }
+
+    for (i = 0; i < vm->def->nnets; i++) {
+        net = vm->def->nets[i];
+
+        if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
+            net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
+            vf = ifaceFindReservedVf(net->data.direct.linkdev, net->mac);
+            if (vf != NULL) {
+                if (qemuDomainMigrateAttachPciDevice(driver, vm, vf, qemuCmdFlags) < 0)
+                    pciVfRelease(vf);
+                pciFreeDevice(vf);
+            }
+        }
     }
 }
 
@@ -9085,7 +9147,7 @@ static int doNativeMigrate(struct qemud_driver *driver,
         /* ignore, not fatal */
     }
 
-    qemuMigrationRemoveEphemeralDevices(driver, vm, qemuCmdFlags);
+    qemuDomainMigrateRemoveEphemeralDevices(driver, vm, qemuCmdFlags);
 
     if (qemuDomainMigrateGraphicsRelocate(driver, vm, mig) < 0)
         VIR_WARN0("unable to provide data for graphics client relocation");
@@ -9135,6 +9197,8 @@ static int doNativeMigrate(struct qemud_driver *driver,
     ret = 0;
 
 cleanup:
+    if (ret != 0)
+        qemuDomainMigrateRestoreHybridVfs(driver, vm, qemuCmdFlags);
     qemuDomainObjMigrationFree(mig);
     xmlFreeURI(uribits);
     return ret;
@@ -9318,7 +9382,7 @@ static int doTunnelMigrate(virDomainPtr dom,
         goto cleanup;
     }
 
-    qemuMigrationRemoveEphemeralDevices(driver, vm, qemuCmdFlags);
+    qemuDomainMigrateRemoveEphemeralDevices(driver, vm, qemuCmdFlags);
 
     /*   3. start migration on source */
     qemuDomainObjEnterMonitorWithDriver(driver, vm);
@@ -9398,6 +9462,8 @@ finish:
     qemuDomainObjExitRemoteWithDriver(driver, vm);
 
 cleanup:
+    if (retval != 0)
+        qemuDomainMigrateRestoreHybridVfs(driver, vm, qemuCmdFlags);
     VIR_FORCE_CLOSE(client_sock);
     VIR_FORCE_CLOSE(qemu_sock);
 

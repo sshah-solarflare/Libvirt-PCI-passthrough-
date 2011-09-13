@@ -47,6 +47,7 @@
 #include "storage_file.h"
 #include "files.h"
 #include "bitmap.h"
+#include "pci.h"
 
 #define VIR_FROM_THIS VIR_FROM_DOMAIN
 
@@ -5952,6 +5953,8 @@ static virDomainDefPtr virDomainDefParseXML(virCapsPtr caps,
     if (virDomainDefAddImplicitControllers(def) < 0)
         goto error;
 
+    virDomainDefFindEphemeralDevices(def);
+
     virBitmapFree(bootMap);
 
     return def;
@@ -6310,6 +6313,56 @@ int virDomainDefAddImplicitControllers(virDomainDefPtr def)
     return 0;
 }
 
+static void
+virDomainDefFindHybridDevices(virDomainDefPtr def)
+{
+    unsigned char mac[VIR_MAC_STRING_BUFLEN];
+    pciDevice *pciDev;
+    int i, j;
+
+    for (i = 0; i < def->nhostdevs; i++) {
+        virDomainHostdevDefPtr hostdev = def->hostdevs[i];
+        if (hostdev->source.subsys.type == VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI) {
+            virDomainDevicePCIAddressPtr addr = &hostdev->source.subsys.u.pci;
+            pciDev = pciGetDevice(addr->domain, addr->bus, addr->slot, addr->function);
+            if (pciDev) {
+                if (pciDeviceIsVf(pciDev) &&
+                    !pciVfGetMacAddr(pciDev, mac)) {
+                    for (j = 0; j < def->nnets; j++) {
+                        virDomainNetDefPtr net = def->nets[j];
+
+                        if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
+                            net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID &&
+                            !virMacAddrCompare((char *)net->mac, (char *)mac)) {
+                            hostdev->ephemeral = true;
+                            break;
+                        }
+                    }
+                }
+                pciFreeDevice(pciDev);
+            }
+        }
+    }
+}
+
+void
+virDomainDefFindEphemeralDevices(virDomainDefPtr def)
+{
+    bool found = false;
+    int i;
+
+    /* Are there any direct hybrid interfaces? */
+    for (i = 0; i < def->nnets; i++) {
+        virDomainNetDefPtr net = def->nets[i];
+        if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
+            net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
+            found = true;
+            break;
+        }
+    }
+    if (found)
+        virDomainDefFindHybridDevices(def);
+}
 
 /************************************************************************
  *                                                                        *
@@ -8030,9 +8083,14 @@ char *virDomainDefFormat(virDomainDefPtr def,
         if (virDomainVideoDefFormat(&buf, def->videos[n], flags) < 0)
             goto cleanup;
 
-    for (n = 0 ; n < def->nhostdevs ; n++)
+    for (n = 0 ; n < def->nhostdevs ; n++) {
+        if ((flags & VIR_DOMAIN_XML_NO_EPHEMERAL_DEVICES) != 0 &&
+            def->hostdevs[n]->ephemeral)
+            continue;
+
         if (virDomainHostdevDefFormat(&buf, def->hostdevs[n], flags) < 0)
             goto cleanup;
+    }
 
     if (def->watchdog)
         virDomainWatchdogDefFormat (&buf, def->watchdog, flags);

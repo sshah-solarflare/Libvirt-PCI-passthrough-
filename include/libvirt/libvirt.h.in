@@ -804,6 +804,8 @@ typedef enum {
     VIR_DOMAIN_XML_SECURE       = (1 << 0), /* dump security sensitive information too */
     VIR_DOMAIN_XML_INACTIVE     = (1 << 1), /* dump inactive domain information */
     VIR_DOMAIN_XML_UPDATE_CPU   = (1 << 2), /* update guest CPU requirements according to host CPU */
+
+    VIR_DOMAIN_XML_NO_EPHEMERAL_DEVICES = (1 << 24),
 } virDomainXMLFlags;
 
 char *                  virDomainGetXMLDesc     (virDomainPtr domain,

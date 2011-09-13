@@ -746,6 +746,7 @@ struct _virDomainHostdevDef {
     char* target;
     int bootIndex;
     virDomainDeviceInfo info; /* Guest address */
+    bool ephemeral;
 };
 
 
@@ -1255,6 +1256,8 @@ virDomainObjPtr virDomainObjParseNode(virCapsPtr caps,
                                       xmlNodePtr root);
 
 int virDomainDefAddImplicitControllers(virDomainDefPtr def);
+
+void virDomainDefFindEphemeralDevices(virDomainDefPtr def);
 
 char *virDomainDefFormat(virDomainDefPtr def,
                          int flags);

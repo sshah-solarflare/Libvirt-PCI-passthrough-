@@ -3127,6 +3127,7 @@ static int qemudStartVMDaemon(virConnectPtr conn,
                  } else {
                      dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
                      dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+                     dev->ephemeral = true;
                      addr = &dev->source.subsys.u.pci;
                      pciGetAddress(vf, &addr->domain, &addr->bus, &addr->slot, &addr->function);
 
@@ -7145,7 +7146,7 @@ static int qemudDomainAttachDevice(virDomainPtr dom,
                 } else {
                     def->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
                     def->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
-
+                    def->ephemeral = true;
                     addr = &def->source.subsys.u.pci;
                     pciGetAddress(vf, &addr->domain, &addr->bus, &addr->slot, &addr->function);
                     ret = qemuDomainAttachHostDevice(driver, vm, def, qemuCmdFlags);
@@ -8524,10 +8525,15 @@ static void qemuDomainEventQueue(struct qemud_driver *driver,
 static bool ATTRIBUTE_NONNULL(1)
 qemuDomainIsMigratable(virDomainDefPtr def)
 {
-    if (def->nhostdevs > 0) {
-        qemuReportError(VIR_ERR_OPERATION_INVALID,
-            "%s", _("Domain with assigned host devices cannot be migrated"));
-        return false;
+    unsigned int i;
+
+    /* Exclude ephemeral devices because these are removed before migration */
+    for (i = 0; i < def->nhostdevs; i++) {
+        if (!def->hostdevs[i]->ephemeral) {
+            qemuReportError(VIR_ERR_OPERATION_INVALID,
+                            "%s", _("Domain with assigned host devices cannot be migrated"));
+            return false;
+        }
     }
 
     return true;
@@ -8594,6 +8600,29 @@ qemuDomainMigrateGraphicsRelocate(struct qemud_driver *driver,
     return ret;
 }
 
+static void qemuMigrationRemoveEphemeralDevices(struct qemud_driver *driver,
+                                                virDomainObjPtr vm,
+                                                unsigned long long qemuCmdFlags)
+{
+    virDomainHostdevDefPtr dev;
+    virDomainDeviceDef def;
+    unsigned int i;
+
+    i = 0;
+    while (i < vm->def->nhostdevs) {
+        dev = vm->def->hostdevs[i];
+        if (dev->ephemeral) {
+             def.type = VIR_DOMAIN_DEVICE_HOSTDEV;
+             def.data.hostdev = dev;
+
+             if (qemuDomainDetachHostDevice(driver, vm, &def, qemuCmdFlags) >= 0) {
+                 /* nohostdevs has been reduced */
+                 continue;
+             }
+        }
+        i++;
+    }
+}
 
 /* Prepare is the first step, and it runs on the destination host.
  *
@@ -9032,6 +9061,7 @@ static int doNativeMigrate(struct qemud_driver *driver,
     qemuDomainObjPrivatePtr priv = vm->privateData;
     unsigned int background_flags = QEMU_MONITOR_MIGRATE_BACKGROUND;
     qemuDomainObjMigrationPtr mig = NULL;
+    unsigned long long qemuCmdFlags;
 
     VIR_DEBUG("Cookie='%s' len=%d'", cookie, cookielen);
 
@@ -9042,10 +9072,20 @@ static int doNativeMigrate(struct qemud_driver *driver,
         return -1;
     }
 
+    if (qemuCapsExtractVersionInfo(vm->def->emulator, vm->def->os.arch,
+                                   NULL, &qemuCmdFlags) < 0) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        _("Cannot extract Qemu version from '%s'"),
+                        vm->def->emulator);
+        return -1;
+    }
+
     if (!(mig = qemuDomainObjMigrationXMLParseStr(cookie))) {
         VIR_WARN("failed to parse migration data %s", cookie);
         /* ignore, not fatal */
     }
+
+    qemuMigrationRemoveEphemeralDevices(driver, vm, qemuCmdFlags);
 
     if (qemuDomainMigrateGraphicsRelocate(driver, vm, mig) < 0)
         VIR_WARN0("unable to provide data for graphics client relocation");
@@ -9278,6 +9318,8 @@ static int doTunnelMigrate(virDomainPtr dom,
         goto cleanup;
     }
 
+    qemuMigrationRemoveEphemeralDevices(driver, vm, qemuCmdFlags);
+
     /*   3. start migration on source */
     qemuDomainObjEnterMonitorWithDriver(driver, vm);
     if (flags & VIR_MIGRATE_NON_SHARED_DISK)
@@ -9491,7 +9533,8 @@ static int doPeer2PeerMigrate(virDomainPtr dom,
 
     dom_xml = qemudVMDumpXML(driver, vm,
                              VIR_DOMAIN_XML_SECURE |
-                             VIR_DOMAIN_XML_UPDATE_CPU);
+                             VIR_DOMAIN_XML_UPDATE_CPU |
+                             VIR_DOMAIN_XML_NO_EPHEMERAL_DEVICES);
     if (!dom_xml) {
         qemuReportError(VIR_ERR_OPERATION_FAILED,
                         "%s", _("failed to get domain xml"));

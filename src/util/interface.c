@@ -27,6 +27,8 @@
 
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <dirent.h>
+#include <fcntl.h>
 
 #ifdef __linux__
 # include <linux/if.h>
@@ -41,6 +43,7 @@
 #include "virterror_internal.h"
 #include "files.h"
 #include "memory.h"
+#include "logging.h"
 
 /* For virReportOOMError()  and virReportSystemError() */
 #define VIR_FROM_THIS VIR_FROM_NET
@@ -460,3 +463,63 @@ ifaceFindReservedVf(const char *ifname, const unsigned char *mac)
     return NULL;
 }
 
+void
+ifaceAddRemoveSfcPeerDevice(const char *ifname, const unsigned char *mac, bool add)
+{
+    char *node, *line;
+    int rc;
+
+    if (virAsprintf(&node, "/sys/class/net/%s/device/local_addrs", ifname) < 0) {
+        virReportOOMError();
+        return;
+    }
+
+    if (VIR_ALLOC_N(line, VIR_MAC_STRING_BUFLEN + 1) < 0) {
+        VIR_FREE(node);
+        virReportOOMError();
+        return;
+    }
+
+    line[0] = add ? '+' : '-';
+    virFormatMacAddr(mac, line + 1);
+    rc = virFileWriteStr(node, line, 0);
+    if (rc == -1 && errno != ENOENT) {
+        VIR_WARN("Failed to write '%s' to '%s': %s",
+                 line, node, strerror(errno));
+    }
+
+    VIR_FREE(line);
+    VIR_FREE(node);
+}
+
+void
+ifaceAddRemoveSfcPeerBridge(const char *ifname, const unsigned char *mac,
+                            bool add)
+{
+    DIR *dir = NULL;
+    char *node;
+    int rc;
+    struct dirent *ent;
+
+    if (virAsprintf(&node, "/sys/class/net/%s/brif", ifname) < 0) {
+        virReportOOMError();
+        return;
+    }
+
+    dir = opendir(node);
+    if (dir == NULL) {
+        rc = errno;
+        VIR_WARN("Failed to open %s: %s", node, strerror(rc));
+        VIR_FREE(node);
+        return;
+    }
+    VIR_FREE(node);
+
+    while ((ent = readdir(dir)) != NULL) {
+        if (strcmp(ent->d_name, "..") && strcmp(ent->d_name, ".")) {
+            ifaceAddRemoveSfcPeerDevice(ent->d_name, mac, add);
+        }
+    }
+
+    closedir(dir);
+}

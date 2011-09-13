@@ -3605,6 +3605,8 @@ static void qemudShutdownVMDaemon(struct qemud_driver *driver,
         if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT) {
             qemuPhysIfaceDisconnect(net);
         }
+        if (net->type == VIR_DOMAIN_NET_TYPE_BRIDGE)
+            ifaceAddRemoveSfcPeerBridge(net->data.bridge.brname, net->mac, false);
     }
 #endif
 

@@ -39,4 +39,10 @@ pciDevice *ifaceReserveFreeVf(const char *ifname, const unsigned char *mac);
 
 pciDevice *ifaceFindReservedVf(const char *ifname, const unsigned char *mac);
 
+void ifaceAddRemoveSfcPeerDevice(const char *ifname, const unsigned char *mac,
+                                 bool add);
+
+void ifaceAddRemoveSfcPeerBridge(const char *ifname, const unsigned char *mac,
+                                 bool add);
+
 #endif /* __VIR_INTERFACE_H__ */

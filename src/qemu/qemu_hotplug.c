@@ -38,6 +38,7 @@
 #include "pci.h"
 #include "files.h"
 #include "qemu_cgroup.h"
+#include "interface.h"
 
 #define VIR_FROM_THIS VIR_FROM_QEMU
 
@@ -1562,6 +1563,8 @@ int qemuDomainDetachNetDevice(struct qemud_driver *driver,
         qemuPhysIfaceDisconnect(detach);
     }
 #endif
+    if (detach->type == VIR_DOMAIN_NET_TYPE_BRIDGE)
+        ifaceAddRemoveSfcPeerBridge(detach->data.bridge.brname, detach->mac, false);
 
     if ((driver->macFilter) && (detach->ifname != NULL)) {
         if ((errno = networkDisallowMacOnPort(driver,

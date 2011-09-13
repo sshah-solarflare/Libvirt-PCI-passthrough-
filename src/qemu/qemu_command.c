@@ -122,6 +122,8 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
     int err;
     int mode;
 
+    ifaceAddRemoveSfcPeerDevice(net->data.direct.linkdev, net->mac, true);
+
     mode = net->data.direct.mode;
     if (mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
         mode = net->data.direct.vf_fallback_mode;
@@ -190,6 +192,9 @@ qemuPhysIfaceDisconnect(virDomainNetDefPtr net)
     delMacvtap(net->ifname, net->mac, net->data.direct.linkdev,
                &net->data.direct.virtPortProfile);
     VIR_FREE(net->ifname);
+
+    ifaceAddRemoveSfcPeerDevice(net->data.direct.linkdev, net->mac, false);
+
 #endif
     return 0;
 }
@@ -321,6 +326,9 @@ qemuNetworkIfaceConnect(virDomainDefPtr def,
                 VIR_FORCE_CLOSE(tapfd);
         }
     }
+
+    if (net->type == VIR_DOMAIN_NET_TYPE_BRIDGE)
+        ifaceAddRemoveSfcPeerBridge(brname, net->mac, true);
 
 cleanup:
     VIR_FREE(brname);

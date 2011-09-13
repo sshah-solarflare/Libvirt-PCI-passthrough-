@@ -427,6 +427,21 @@ ifaceGetVf(const char *ifname, unsigned num)
 }
 
 pciDevice *
+ifaceReserveFreeVf(const char *ifname, const unsigned char *mac)
+{
+    pciDevice *dev;
+    unsigned int i;
+
+    for (i = 0; (dev = ifaceGetVf(ifname, i)) != NULL; i++) {
+        if (!pciVfReserve(dev, mac))
+            return dev;
+        pciFreeDevice(dev);
+    }
+
+    return NULL;
+}
+
+pciDevice *
 ifaceFindReservedVf(const char *ifname, const unsigned char *mac)
 {
     pciDevice *dev;

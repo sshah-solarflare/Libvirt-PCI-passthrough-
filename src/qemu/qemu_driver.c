@@ -91,6 +91,7 @@
 #include "fdstream.h"
 #include "configmake.h"
 #include "threadpool.h"
+#include "interface.h"
 
 #define VIR_FROM_THIS VIR_FROM_QEMU
 
@@ -3085,6 +3086,7 @@ static int qemudStartVMDaemon(virConnectPtr conn,
     char *timestamp;
     qemuDomainObjPrivatePtr priv = vm->privateData;
     virCommandPtr cmd = NULL;
+    int i;
 
     struct qemudHookData hookData;
     unsigned long cur_balloon;
@@ -3109,6 +3111,37 @@ static int qemudStartVMDaemon(virConnectPtr conn,
         goto cleanup;
 
     vm->def->id = driver->nextvmid++;
+
+    for(i = 0 ; i < vm->def->nnets ; i++) {
+         virDomainNetDefPtr net = vm->def->nets[i];
+         virDomainHostdevDefPtr dev;
+         virDomainDevicePCIAddressPtr addr;
+         pciDevice *vf;
+
+         if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
+             net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
+             vf = ifaceReserveFreeVf(net->data.direct.linkdev, net->mac);
+             if (vf != NULL) {
+                 if (VIR_ALLOC(dev) < 0) {
+                     virReportOOMError();
+                 } else {
+                     dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
+                     dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+                     addr = &dev->source.subsys.u.pci;
+                     pciGetAddress(vf, &addr->domain, &addr->bus, &addr->slot, &addr->function);
+
+                     if (VIR_REALLOC_N(vm->def->hostdevs, vm->def->nhostdevs+1) < 0) {
+                         virReportOOMError();
+                         VIR_FREE(dev);
+                     } else {
+                         vm->def->hostdevs[vm->def->nhostdevs] = dev;
+                         vm->def->nhostdevs++;
+                     }
+                 }
+                 pciFreeDevice(vf);
+             }
+         }
+    }
 
     /* Must be run before security labelling */
     DEBUG0("Preparing host devices");
@@ -7096,6 +7129,35 @@ static int qemudDomainAttachDevice(virDomainPtr dom,
             /* fallthrough */
         }
     } else if (dev->type == VIR_DOMAIN_DEVICE_NET) {
+        if (dev->data.net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
+            dev->data.net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
+            pciDevice *vf;
+            virDomainHostdevDefPtr def;
+            virDomainDevicePCIAddressPtr addr;
+
+            vf = ifaceReserveFreeVf(dev->data.net->data.direct.linkdev,
+                                    dev->data.net->mac);
+            if (vf != NULL) {
+                if(VIR_ALLOC(def) < 0) {
+                    virReportOOMError();
+                } else {
+                    def->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
+                    def->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+
+                    addr = &def->source.subsys.u.pci;
+                    pciGetAddress(vf, &addr->domain, &addr->bus, &addr->slot, &addr->function);
+                    ret = qemuDomainAttachHostDevice(driver, vm, def, qemuCmdFlags);
+                    if(!ret)
+                        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                                        _("Could not hotplug VF on linkdev %s"),
+                                        dev->data.net->data.direct.linkdev);
+                }
+                pciFreeDevice(vf);
+            } else {
+                VIR_WARN("No free VFs on linkdev %s",
+                         dev->data.net->data.direct.linkdev);
+            }
+        }
         ret = qemuDomainAttachNetDevice(dom->conn, driver, vm,
                                         dev->data.net, qemuCmdFlags);
         if (ret == 0)

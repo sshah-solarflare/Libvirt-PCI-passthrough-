@@ -31,6 +31,11 @@ pciDevice *pciGetDevice      (unsigned       domain,
                               unsigned       bus,
                               unsigned       slot,
                               unsigned       function);
+void       pciGetAddress     (pciDevice     *dev,
+                              unsigned      *domain,
+                              unsigned      *bus,
+                              unsigned      *slot,
+                              unsigned      *function);
 void       pciFreeDevice     (pciDevice     *dev);
 int        pciDettachDevice  (pciDevice     *dev, pciDeviceList *activeDevs);
 int        pciReAttachDevice (pciDevice     *dev, pciDeviceList *activeDevs);
@@ -72,6 +77,8 @@ int pciDeviceFileIterate(pciDevice *dev,
 int pciDeviceIsAssignable(pciDevice *dev,
                           int strict_acs_check);
 int pciWaitForDeviceCleanup(pciDevice *dev, const char *matcher);
+
+int pciDeviceIsVf(pciDevice *device);
 
 int pciVfGetMacAddr(pciDevice *dev, unsigned char *mac);
 

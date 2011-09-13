@@ -36,6 +36,7 @@
 #include "c-ctype.h"
 #include "domain_nwfilter.h"
 #include "qemu_audit.h"
+#include "interface.h"
 
 #include <sys/utsname.h>
 #include <sys/stat.h>
@@ -119,13 +120,18 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
     char *res_ifname = NULL;
     int vnet_hdr = 0;
     int err;
+    int mode;
+
+    mode = net->data.direct.mode;
+    if (mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
+        mode = net->data.direct.vf_fallback_mode;
 
     if (qemuCmdFlags & QEMUD_CMD_FLAG_VNET_HDR &&
         net->model && STREQ(net->model, "virtio"))
         vnet_hdr = 1;
 
     rc = openMacvtapTap(net->ifname, net->mac, net->data.direct.linkdev,
-                        net->data.direct.mode, vnet_hdr, def->uuid,
+                        mode, vnet_hdr, def->uuid,
                         &net->data.direct.virtPortProfile, &res_ifname,
                         vmop);
     if (rc >= 0) {
@@ -171,11 +177,21 @@ int
 qemuPhysIfaceDisconnect(virDomainNetDefPtr net)
 {
 #if WITH_MACVTAP
+    pciDevice *vf;
+
+    if (net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
+        vf = ifaceFindReservedVf(net->data.direct.linkdev, net->mac);
+        if (vf != NULL) {
+            pciVfRelease(vf);
+            pciFreeDevice(vf);
+        }
+    }
+
     delMacvtap(net->ifname, net->mac, net->data.direct.linkdev,
                &net->data.direct.virtPortProfile);
     VIR_FREE(net->ifname);
-    return 0;
 #endif
+    return 0;
 }
 
 int

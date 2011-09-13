@@ -35,6 +35,8 @@ int ifaceGetVlanID(const char *vlanifname, int *vlanid);
 
 pciDevice *ifaceGetVf(const char *ifname, unsigned num);
 
+pciDevice *ifaceReserveFreeVf(const char *ifname, const unsigned char *mac);
+
 pciDevice *ifaceFindReservedVf(const char *ifname, const unsigned char *mac);
 
 #endif /* __VIR_INTERFACE_H__ */

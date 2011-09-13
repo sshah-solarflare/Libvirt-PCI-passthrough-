@@ -1493,6 +1493,22 @@ int pciDeviceIsAssignable(pciDevice *dev,
     return 1;
 }
 
+int pciDeviceIsVf(pciDevice *device)
+{
+    char *node;
+    int found;
+
+    if (virAsprintf(&node, PCI_SYSFS "devices/%s/physfn", device->name) < 0) {
+        virReportOOMError();
+        return 0;
+    }
+
+    found = virFileExists(node);
+    VIR_FREE(node);
+
+    return found;
+}
+
 int pciVfGetMacAddr(pciDevice *dev, unsigned char *mac)
 {
     char *node, *buf, *macstr;
@@ -1612,3 +1628,14 @@ char *pciFindIfaceName(pciDevice *device)
     }
 }
 
+void pciGetAddress(pciDevice     *dev,
+                   unsigned      *domain,
+                   unsigned      *bus,
+                   unsigned      *slot,
+                   unsigned      *function)
+{
+    *domain = dev->domain;
+    *bus = dev->bus;
+    *slot = dev->slot;
+    *function = dev->function;
+}

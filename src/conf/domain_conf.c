@@ -345,9 +345,11 @@ VIR_ENUM_IMPL(virDomainSeclabel, VIR_DOMAIN_SECLABEL_LAST,
 VIR_ENUM_IMPL(virDomainNetdevMacvtap, VIR_DOMAIN_NETDEV_MACVTAP_MODE_LAST,
               "vepa",
               "private",
-              "bridge")
+              "bridge",
+              "vf-hotplug",
+              "vf-hotplug-hybrid")
 
-VIR_ENUM_IMPL(virDomainNetdevMacvtapFallback, VIR_DOMAIN_NETDEV_MACVTAP_MODE_LAST,
+VIR_ENUM_IMPL(virDomainNetdevMacvtapFallback, VIR_DOMAIN_NETDEV_MACVTAP_FALLBACK_MODE_LAST,
               "vepa",
               "private",
               "bridge")

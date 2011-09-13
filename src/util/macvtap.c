@@ -474,6 +474,8 @@ macvtapModeFromInt(enum virDomainNetdevMacvtapType mode)
         return MACVLAN_MODE_BRIDGE;
 
     case VIR_DOMAIN_NETDEV_MACVTAP_MODE_VEPA:
+    case VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG:
+    case VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID:
     default:
         return MACVLAN_MODE_VEPA;
     }

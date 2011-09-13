@@ -2259,7 +2259,7 @@
   </define>
   <define name="bridgeMode">
     <data type="string">
-      <param name="pattern">(vepa|bridge|private)</param>
+      <param name="pattern">(vepa|bridge|private|vf-hotplug|vf-hotplug-hybrid)</param>
     </data>
   </define>
   <define name="fallbackMode">

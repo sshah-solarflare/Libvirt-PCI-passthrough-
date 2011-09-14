@@ -7191,18 +7191,19 @@ static int qemudDomainAttachDevice(virDomainPtr dom,
             /* fallthrough */
         }
     } else if (dev->type == VIR_DOMAIN_DEVICE_NET) {
-        if (dev->data.net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
-            dev->data.net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
-            qemuVfHotplugAttachLive(driver, vm, dev->data.net->data.direct.linkdev,
-                                    dev->data.net->mac, qemuCmdFlags);
-        else if (dev->data.net->vf_hotplug != NULL)
-            qemuVfHotplugAttachLive(driver, vm, dev->data.net->vf_hotplug,
-                                    dev->data.net->mac, qemuCmdFlags);
-
         ret = qemuDomainAttachNetDevice(dom->conn, driver, vm,
                                         dev->data.net, qemuCmdFlags);
-        if (ret == 0)
+        if (ret == 0) {
             dev->data.net = NULL;
+
+            if (dev->data.net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
+                dev->data.net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
+                qemuVfHotplugAttachLive(driver, vm, dev->data.net->data.direct.linkdev,
+                                        dev->data.net->mac, qemuCmdFlags);
+            else if (dev->data.net->vf_hotplug != NULL)
+                qemuVfHotplugAttachLive(driver, vm, dev->data.net->vf_hotplug,
+                                        dev->data.net->mac, qemuCmdFlags);
+        }
     } else if (dev->type == VIR_DOMAIN_DEVICE_HOSTDEV) {
         ret = qemuDomainAttachHostDevice(driver, vm,
                                          dev->data.hostdev, qemuCmdFlags);

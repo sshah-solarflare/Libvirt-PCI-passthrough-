@@ -394,7 +394,7 @@ struct _virDomainNetDef {
     char *filter;
     virNWFilterHashTablePtr filterparams;
     char *vf_hotplug;
-    unsigned int vlan_id;
+    unsigned int vf_hotplug_vlan;
     bool vf_hotplug_hybrid;
 };
 

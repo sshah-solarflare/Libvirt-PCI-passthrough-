@@ -3231,9 +3231,9 @@ static int qemudStartVMDaemon(virConnectPtr conn,
 
             if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
                 net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
-                qemuVfHotplugAddHostdev(vm, net->data.direct.linkdev, net->mac, net->vlan_id);
+                qemuVfHotplugAddHostdev(vm, net->data.direct.linkdev, net->mac, 0);
             else if (net->vf_hotplug != NULL)
-                qemuVfHotplugAddHostdev(vm, net->vf_hotplug, net->mac, net->vlan_id);
+                qemuVfHotplugAddHostdev(vm, net->vf_hotplug, net->mac, net->vf_hotplug_vlan);
         }
     }
 
@@ -3699,7 +3699,7 @@ static void qemudShutdownVMDaemon(struct qemud_driver *driver,
         if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT) {
             if (net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
                 pciDevice *vf = ifaceFindReservedVf(net->data.direct.linkdev,
-                                                    net->mac, net->vlan_id);
+                                                    net->mac, 0);
                 if (vf != NULL) {
                     pciVfRelease(vf);
                     pciFreeDevice(vf);
@@ -3713,7 +3713,7 @@ static void qemudShutdownVMDaemon(struct qemud_driver *driver,
 
         if (net->vf_hotplug != NULL) {
             pciDevice *vf = ifaceFindReservedVf(net->vf_hotplug, net->mac,
-                                                net->vlan_id);
+                                                net->vf_hotplug_vlan);
             if (vf != NULL) {
                 pciVfRelease(vf);
                 pciFreeDevice(vf);
@@ -7249,11 +7249,10 @@ static int qemudDomainAttachDevice(virDomainPtr dom,
             if (dev->data.net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
                 dev->data.net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
                 qemuVfHotplugAttachLive(driver, vm, dev->data.net->data.direct.linkdev,
-                                        dev->data.net->mac, dev->data.net->vlan_id,
-                                        qemuCmdFlags);
+                                        dev->data.net->mac, 0, qemuCmdFlags);
             else if (dev->data.net->vf_hotplug != NULL)
                 qemuVfHotplugAttachLive(driver, vm, dev->data.net->vf_hotplug,
-                                        dev->data.net->mac, dev->data.net->vlan_id,
+                                        dev->data.net->mac, dev->data.net->vf_hotplug_vlan,
                                         qemuCmdFlags);
         }
     } else if (dev->type == VIR_DOMAIN_DEVICE_HOSTDEV) {
@@ -7474,11 +7473,10 @@ static int qemudDomainDetachDevice(virDomainPtr dom,
         if (dev->data.net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
             dev->data.net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
             qemuVfHotplugDetachLive(driver, vm, dev->data.net->data.direct.linkdev,
-                                    dev->data.net->mac, dev->data.net->vlan_id,
-                                    qemuCmdFlags);
+                                    dev->data.net->mac, 0, qemuCmdFlags);
         else if (dev->data.net->vf_hotplug != NULL)
             qemuVfHotplugDetachLive(driver, vm, dev->data.net->vf_hotplug,
-                                    dev->data.net->mac, dev->data.net->vlan_id,
+                                    dev->data.net->mac, dev->data.net->vf_hotplug_vlan,
                                     qemuCmdFlags);
         ret = qemuDomainDetachNetDevice(driver, vm, dev, qemuCmdFlags);
     } else if (dev->type == VIR_DOMAIN_DEVICE_CONTROLLER) {
@@ -8771,9 +8769,9 @@ qemuDomainMigrateVfHotplugOp(struct qemud_driver *driver,
 
         if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
             net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
-            vf = vfOp(net->data.direct.linkdev, net->mac, net->vlan_id);
+            vf = vfOp(net->data.direct.linkdev, net->mac, 0);
         else if (net->vf_hotplug != NULL)
-            vf = vfOp(net->vf_hotplug, net->mac, net->vlan_id);
+            vf = vfOp(net->vf_hotplug, net->mac, net->vf_hotplug_vlan);
         else
             vf = NULL;
         if (vf != NULL) {

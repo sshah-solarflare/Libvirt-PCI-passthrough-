@@ -1085,13 +1085,6 @@
         <ref name="deviceBoot"/>
       </optional>
       <optional>
-	<element name="vlan">
-	  <attribute name="vlan-id">
-	    <ref name="vlan_id"/>
-	  </attribute>
-	</element>
-      </optional>
-      <optional>
         <element name="vf-hotplug">
           <attribute name="source">
             <ref name="deviceName"/>
@@ -1102,6 +1095,11 @@
                 <value>yes</value>
                 <value>no</value>
               </choice>
+            </attribute>
+          </optional>
+          <optional>
+            <attribute name="vlan">
+              <ref name="vlan_id"/>
             </attribute>
           </optional>
           <empty/>

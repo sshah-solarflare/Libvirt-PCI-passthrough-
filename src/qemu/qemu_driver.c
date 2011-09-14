@@ -8642,6 +8642,7 @@ qemuDomainMigrateAttachPciDevice(struct qemud_driver *driver,
     hostdev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
     hostdev->source.subsys.type =
         VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+    hostdev->ephemeral = true;
     addr = &hostdev->source.subsys.u.pci;
     pciGetAddress(dev, &addr->domain, &addr->bus,
                   &addr->slot, &addr->function);

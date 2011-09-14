@@ -3118,13 +3118,13 @@ qemuVfHotplugDetachLive(struct qemud_driver *driver,
                def.data.hostdev->source.subsys.u.pci.slot == addr.slot &&
                def.data.hostdev->source.subsys.u.pci.function == addr.function) {
                 pciVfRelease(vf);
-                pciFreeDevice(vf);
                 qemuDomainDetachHostDevice(driver, vm, &def, qemuCmdFlags);
                 break;
             }
             else
                 i++;
         }
+        pciFreeDevice(vf);
     }
 }
 
@@ -3697,8 +3697,8 @@ static void qemudShutdownVMDaemon(struct qemud_driver *driver,
                     pciVfRelease(vf);
                     pciFreeDevice(vf);
                 }
-                qemuPhysIfaceDisconnect(net);
             }
+            qemuPhysIfaceDisconnect(net);
         }
 #endif
         if (net->type == VIR_DOMAIN_NET_TYPE_BRIDGE)

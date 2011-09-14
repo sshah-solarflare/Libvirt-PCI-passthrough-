@@ -626,6 +626,7 @@ void virDomainNetDefFree(virDomainNetDefPtr def)
         VIR_FREE(def->data.bridge.brname);
         VIR_FREE(def->data.bridge.script);
         VIR_FREE(def->data.bridge.ipaddr);
+        VIR_FREE(def->vf_hotplug);
         break;
 
     case VIR_DOMAIN_NET_TYPE_INTERNAL:

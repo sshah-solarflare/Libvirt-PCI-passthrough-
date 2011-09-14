@@ -3117,13 +3117,13 @@ qemuVfHotplugDetachLive(struct qemud_driver *driver,
                def.data.hostdev->source.subsys.u.pci.bus == addr.bus &&
                def.data.hostdev->source.subsys.u.pci.slot == addr.slot &&
                def.data.hostdev->source.subsys.u.pci.function == addr.function) {
-                pciVfRelease(vf);
                 qemuDomainDetachHostDevice(driver, vm, &def, qemuCmdFlags);
                 break;
             }
             else
                 i++;
         }
+        pciVfRelease(vf);
         pciFreeDevice(vf);
     }
 }

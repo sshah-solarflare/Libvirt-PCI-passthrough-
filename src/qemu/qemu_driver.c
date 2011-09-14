@@ -9960,7 +9960,6 @@ qemudDomainMigrateFinish2 (virConnectPtr dconn,
         }
 
         qemudVPAssociatePortProfiles(vm->def);
-        qemuDomainMigrateAttachVfHotplug(driver, vm, qemuCmdFlags);
 
         if (flags & VIR_MIGRATE_PERSIST_DEST) {
             if (vm->persistent)
@@ -10022,6 +10021,9 @@ qemudDomainMigrateFinish2 (virConnectPtr dconn,
             VIR_WARN("Failed to save status on vm %s", vm->def->name);
             goto endjob;
         }
+
+        qemuDomainMigrateAttachVfHotplug(driver, vm, qemuCmdFlags);
+
     } else {
         qemudShutdownVMDaemon(driver, vm, 1);
         qemuAuditDomainStop(vm, "failed");

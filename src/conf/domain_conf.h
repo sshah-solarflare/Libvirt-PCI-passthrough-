@@ -393,6 +393,8 @@ struct _virDomainNetDef {
     virDomainDeviceInfo info;
     char *filter;
     virNWFilterHashTablePtr filterparams;
+    char *vf_hotplug;
+    bool vf_hotplug_hybrid;
 };
 
 enum virDomainChrDeviceType {

@@ -2495,6 +2495,8 @@ virDomainNetDefParseXML(virCapsPtr caps,
     char *devaddr = NULL;
     char *mode = NULL;
     char *vf_fallback_mode = NULL;
+    char *vf_hotplug = NULL;
+    char *vf_hotplug_hybrid = NULL;
     virNWFilterHashTablePtr filterparams = NULL;
     virVirtualPortProfileParams virtPort;
     bool virtPortParsed = false;
@@ -2593,6 +2595,9 @@ virDomainNetDefParseXML(virCapsPtr caps,
                 if (virDomainDeviceBootParseXML(cur, &def->bootIndex,
                                                 bootMap))
                     goto error;
+            } else if (xmlStrEqual(cur->name, BAD_CAST "vf-hotplug")) {
+                vf_hotplug = virXMLPropString(cur, "source");
+                vf_hotplug_hybrid = virXMLPropString(cur, "hybrid");
             }
         }
         cur = cur->next;
@@ -2621,6 +2626,24 @@ virDomainNetDefParseXML(virCapsPtr caps,
     } else {
         if (virDomainDeviceInfoParseXML(node, &def->info, flags) < 0)
             goto error;
+    }
+
+    if (vf_hotplug != NULL) {
+        def->vf_hotplug = vf_hotplug;
+        vf_hotplug = NULL;
+
+        if (vf_hotplug_hybrid != NULL) {
+            if (STREQ(vf_hotplug_hybrid, "yes")) {
+                def->vf_hotplug_hybrid = true;
+            } else if (STREQ(vf_hotplug_hybrid, "no")) {
+                def->vf_hotplug_hybrid = false;
+            } else {
+                virDomainReportError(VIR_ERR_INTERNAL_ERROR,
+                                     _("unknown vf-hotplug hybrid mode '%s'"),
+                                     vf_hotplug_hybrid);
+                goto error;
+            }
+        }
     }
 
     /* XXX what about ISA/USB based NIC models - once we support
@@ -2855,6 +2878,8 @@ cleanup:
     VIR_FREE(mode);
     virNWFilterHashTableFree(filterparams);
     VIR_FREE(vf_fallback_mode);
+    VIR_FREE(vf_hotplug);
+    VIR_FREE(vf_hotplug_hybrid);
 
     return def;
 
@@ -6326,8 +6351,9 @@ virDomainDefFindNetworkForDevice(virDomainDefPtr def,
             virDomainNetDefPtr net = def->nets[i];
 
             if (!virMacAddrCompare((char *)net->mac, (char *)mac)) {
-                if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
-                    net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
+                if ((net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
+                     net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) ||
+                    net->vf_hotplug != NULL) {
                     /* TODO: verify that the ethdev for the PF matches */
                     return true;
                 }
@@ -6347,8 +6373,9 @@ virDomainDefFindEphemeralDevices(virDomainDefPtr def)
     /* Are there any direct vf-hotplug-hybrid or vf-hotplug interfaces? */
     for (i = 0; i < def->nnets; i++) {
         virDomainNetDefPtr net = def->nets[i];
-        if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
-            net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
+        if ((net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
+             net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) ||
+            net->vf_hotplug != NULL) {
             found = true;
             break;
         }
@@ -6950,7 +6977,9 @@ virDomainNetDefFormat(virBufferPtr buf,
     }
     if (def->bootIndex)
         virBufferVSprintf(buf, "      <boot order='%d'/>\n", def->bootIndex);
-
+    if (def->vf_hotplug)
+        virBufferVSprintf(buf, "      <vf-hotplug source='%s' hybrid='%s'/>\n",
+                          def->vf_hotplug, def->vf_hotplug_hybrid ? "yes" : "no");
     if (def->tune.sndbuf_specified) {
         virBufferAddLit(buf,   "      <tune>\n");
         virBufferVSprintf(buf, "        <sndbuf>%lu</sndbuf>\n", def->tune.sndbuf);

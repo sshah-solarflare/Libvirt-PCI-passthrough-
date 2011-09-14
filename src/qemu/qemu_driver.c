@@ -3186,6 +3186,8 @@ static int qemudStartVMDaemon(virConnectPtr conn,
             if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
                 net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
                 qemuVfHotplugAddHostdev(vm, net->data.direct.linkdev, net->mac);
+            else if (net->vf_hotplug != NULL)
+                qemuVfHotplugAddHostdev(vm, net->vf_hotplug, net->mac);
         }
     }
 
@@ -3654,6 +3656,14 @@ static void qemudShutdownVMDaemon(struct qemud_driver *driver,
 #endif
         if (net->type == VIR_DOMAIN_NET_TYPE_BRIDGE)
             ifaceAddRemoveSfcPeerBridge(net->data.bridge.brname, net->mac, false);
+
+        if (net->vf_hotplug != NULL) {
+            pciDevice *vf = ifaceFindReservedVf(net->vf_hotplug, net->mac);
+            if (vf != NULL) {
+                pciVfRelease(vf);
+                pciFreeDevice(vf);
+            }
+        }
     }
 
 retry:
@@ -7178,10 +7188,13 @@ static int qemudDomainAttachDevice(virDomainPtr dom,
         }
     } else if (dev->type == VIR_DOMAIN_DEVICE_NET) {
         if (dev->data.net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
-            dev->data.net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
+            dev->data.net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
             qemuVfHotplugAttachLive(driver, vm, dev->data.net->data.direct.linkdev,
                                     dev->data.net->mac, qemuCmdFlags);
-        }
+        else if (dev->data.net->vf_hotplug != NULL)
+            qemuVfHotplugAttachLive(driver, vm, dev->data.net->vf_hotplug,
+                                    dev->data.net->mac, qemuCmdFlags);
+
         ret = qemuDomainAttachNetDevice(dom->conn, driver, vm,
                                         dev->data.net, qemuCmdFlags);
         if (ret == 0)
@@ -8692,6 +8705,8 @@ qemuDomainMigrateVfHotplugOp(struct qemud_driver *driver,
         if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
             net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
             vf = vfOp(net->data.direct.linkdev, net->mac);
+        else if (net->vf_hotplug != NULL)
+            vf = vfOp(net->vf_hotplug, net->mac);
         else
             vf = NULL;
         if (vf != NULL) {

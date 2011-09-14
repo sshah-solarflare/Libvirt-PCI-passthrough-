@@ -1082,6 +1082,22 @@
       <optional>
         <ref name="deviceBoot"/>
       </optional>
+      <optional>
+        <element name="vf-hotplug">
+          <attribute name="source">
+            <ref name="deviceName"/>
+          </attribute>
+          <optional>
+            <attribute name="hybrid">
+              <choice>
+                <value>yes</value>
+                <value>no</value>
+              </choice>
+            </attribute>
+          </optional>
+          <empty/>
+        </element>
+      </optional>
     </interleave>
   </define>
   <define name="virtualPortProfile">

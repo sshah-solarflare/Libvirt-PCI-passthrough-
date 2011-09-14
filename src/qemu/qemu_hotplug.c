@@ -1690,6 +1690,13 @@ int qemuDomainDetachHostPciDevice(struct qemud_driver *driver,
         VIR_FREE(vm->def->hostdevs);
         vm->def->nhostdevs = 0;
     }
+
+    if (driver->securityDriver &&
+        driver->securityDriver->domainRestoreSecurityHostdevLabel &&
+        driver->securityDriver->domainRestoreSecurityHostdevLabel(driver->securityDriver,
+                                                                  vm, dev->data.hostdev) < 0)
+        VIR_WARN0("Failed to restore host device labelling");
+
     virDomainHostdevDefFree(detach);
 
     /* Don't issue back to back attach/detach */
@@ -1773,6 +1780,13 @@ int qemuDomainDetachHostUsbDevice(struct qemud_driver *driver,
         VIR_FREE(vm->def->hostdevs);
         vm->def->nhostdevs = 0;
     }
+
+    if (driver->securityDriver &&
+        driver->securityDriver->domainRestoreSecurityHostdevLabel &&
+        driver->securityDriver->domainRestoreSecurityHostdevLabel(driver->securityDriver,
+                                                                  vm, dev->data.hostdev) < 0)
+        VIR_WARN0("Failed to restore host device labelling");
+
     virDomainHostdevDefFree(detach);
 
     return ret;
@@ -1806,12 +1820,6 @@ int qemuDomainDetachHostDevice(struct qemud_driver *driver,
                         virDomainHostdevSubsysTypeToString(hostdev->source.subsys.type));
         return -1;
     }
-
-    if (driver->securityDriver &&
-        driver->securityDriver->domainRestoreSecurityHostdevLabel &&
-        driver->securityDriver->domainRestoreSecurityHostdevLabel(driver->securityDriver,
-                                                                  vm, dev->data.hostdev) < 0)
-        VIR_WARN0("Failed to restore host device labelling");
 
     return ret;
 }

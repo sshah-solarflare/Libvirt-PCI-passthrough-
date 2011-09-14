@@ -3060,6 +3060,73 @@ qemuPrepareMonitorChr(struct qemud_driver *driver,
     return 0;
 }
 
+static void qemuVfHotplugAddHostdev(virDomainObjPtr vm,
+                                    const char *linkdev,
+                                    const unsigned char *mac)
+{
+    pciDevice *vf;
+    virDomainHostdevDefPtr dev;
+    virDomainDevicePCIAddressPtr addr;
+
+    vf = ifaceReserveFreeVf(linkdev, mac);
+    if (vf != NULL) {
+        if (VIR_ALLOC(dev) < 0) {
+            virReportOOMError();
+        } else {
+            dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
+            dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+            dev->ephemeral = true;
+            addr = &dev->source.subsys.u.pci;
+            pciGetAddress(vf, &addr->domain, &addr->bus, &addr->slot, &addr->function);
+
+            if (VIR_REALLOC_N(vm->def->hostdevs, vm->def->nhostdevs+1) < 0) {
+                virReportOOMError();
+                VIR_FREE(dev);
+            } else {
+                vm->def->hostdevs[vm->def->nhostdevs] = dev;
+                vm->def->nhostdevs++;
+            }
+        }
+        pciFreeDevice(vf);
+    }
+}
+
+static void
+qemuVfHotplugAttachLive(struct qemud_driver *driver,
+                        virDomainObjPtr vm,
+                        const char *linkdev,
+                        const unsigned char *mac,
+                        unsigned long long qemuCmdFlags)
+{
+    pciDevice *vf;
+    virDomainHostdevDefPtr def;
+    virDomainDevicePCIAddressPtr addr;
+    int ret;
+
+    vf = ifaceReserveFreeVf(linkdev, mac);
+    if (vf != NULL) {
+        if(VIR_ALLOC(def) < 0) {
+            virReportOOMError();
+        } else {
+            def->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
+            def->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+            def->ephemeral = true;
+
+            addr = &def->source.subsys.u.pci;
+            pciGetAddress(vf, &addr->domain, &addr->bus, &addr->slot,
+                          &addr->function);
+            ret = qemuDomainAttachHostDevice(driver, vm, def, qemuCmdFlags);
+            if(!ret)
+                qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                                _("Could not hotplug VF on linkdev %s"),
+                                linkdev);
+        }
+        pciFreeDevice(vf);
+    } else {
+        VIR_WARN("No free VFs on linkdev %s", linkdev);
+    }
+}
+
 static int qemuDomainSnapshotSetCurrentActive(virDomainObjPtr vm,
                                               char *snapshotDir);
 static int qemuDomainSnapshotSetCurrentInactive(virDomainObjPtr vm,
@@ -3115,34 +3182,10 @@ static int qemudStartVMDaemon(virConnectPtr conn,
     if (vmop == VIR_VM_OP_CREATE) {
         for(i = 0 ; i < vm->def->nnets ; i++) {
             virDomainNetDefPtr net = vm->def->nets[i];
-            virDomainHostdevDefPtr dev;
-            virDomainDevicePCIAddressPtr addr;
-            pciDevice *vf;
 
             if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
-                net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
-                vf = ifaceReserveFreeVf(net->data.direct.linkdev, net->mac);
-                if (vf != NULL) {
-                    if (VIR_ALLOC(dev) < 0) {
-                        virReportOOMError();
-                    } else {
-                        dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
-                        dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
-                        dev->ephemeral = true;
-                        addr = &dev->source.subsys.u.pci;
-                        pciGetAddress(vf, &addr->domain, &addr->bus, &addr->slot, &addr->function);
-
-                        if (VIR_REALLOC_N(vm->def->hostdevs, vm->def->nhostdevs+1) < 0) {
-                            virReportOOMError();
-                            VIR_FREE(dev);
-                        } else {
-                            vm->def->hostdevs[vm->def->nhostdevs] = dev;
-                            vm->def->nhostdevs++;
-                        }
-                    }
-                    pciFreeDevice(vf);
-                }
-            }
+                net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
+                qemuVfHotplugAddHostdev(vm, net->data.direct.linkdev, net->mac);
         }
     }
 
@@ -3601,17 +3644,17 @@ static void qemudShutdownVMDaemon(struct qemud_driver *driver,
 
     qemuDomainReAttachHostDevices(driver, vm->def);
 
-#if WITH_MACVTAP
     def = vm->def;
     for (i = 0; i < def->nnets; i++) {
         virDomainNetDefPtr net = def->nets[i];
+#if WITH_MACVTAP
         if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT) {
             qemuPhysIfaceDisconnect(net);
         }
+#endif
         if (net->type == VIR_DOMAIN_NET_TYPE_BRIDGE)
             ifaceAddRemoveSfcPeerBridge(net->data.bridge.brname, net->mac, false);
     }
-#endif
 
 retry:
     if ((ret = qemuRemoveCgroup(driver, vm, 0)) < 0) {
@@ -7136,32 +7179,8 @@ static int qemudDomainAttachDevice(virDomainPtr dom,
     } else if (dev->type == VIR_DOMAIN_DEVICE_NET) {
         if (dev->data.net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
             dev->data.net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
-            pciDevice *vf;
-            virDomainHostdevDefPtr def;
-            virDomainDevicePCIAddressPtr addr;
-
-            vf = ifaceReserveFreeVf(dev->data.net->data.direct.linkdev,
-                                    dev->data.net->mac);
-            if (vf != NULL) {
-                if(VIR_ALLOC(def) < 0) {
-                    virReportOOMError();
-                } else {
-                    def->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
-                    def->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
-                    def->ephemeral = true;
-                    addr = &def->source.subsys.u.pci;
-                    pciGetAddress(vf, &addr->domain, &addr->bus, &addr->slot, &addr->function);
-                    ret = qemuDomainAttachHostDevice(driver, vm, def, qemuCmdFlags);
-                    if(!ret)
-                        qemuReportError(VIR_ERR_INTERNAL_ERROR,
-                                        _("Could not hotplug VF on linkdev %s"),
-                                        dev->data.net->data.direct.linkdev);
-                }
-                pciFreeDevice(vf);
-            } else {
-                VIR_WARN("No free VFs on linkdev %s",
-                         dev->data.net->data.direct.linkdev);
-            }
+            qemuVfHotplugAttachLive(driver, vm, dev->data.net->data.direct.linkdev,
+                                    dev->data.net->mac, qemuCmdFlags);
         }
         ret = qemuDomainAttachNetDevice(dom->conn, driver, vm,
                                         dev->data.net, qemuCmdFlags);
@@ -8658,10 +8677,10 @@ qemuDomainMigrateAttachPciDevice(struct qemud_driver *driver,
 
 /* Reattach old/Attach new VFs */
 static void
-qemuDomainMigrateHybridVfOp(struct qemud_driver *driver,
-                            virDomainObjPtr vm,
-                            pciDevice *(vfOp)(const char *, const unsigned char *),
-                            unsigned long long qemuCmdFlags)
+qemuDomainMigrateVfHotplugOp(struct qemud_driver *driver,
+                             virDomainObjPtr vm,
+                             pciDevice *(vfOp)(const char *, const unsigned char *),
+                             unsigned long long qemuCmdFlags)
 {
     virDomainNetDefPtr net;
     pciDevice *vf;
@@ -8671,13 +8690,14 @@ qemuDomainMigrateHybridVfOp(struct qemud_driver *driver,
         net = vm->def->nets[i];
 
         if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
-            net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
+            net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
             vf = vfOp(net->data.direct.linkdev, net->mac);
-            if (vf != NULL) {
-                if (qemuDomainMigrateAttachPciDevice(driver, vm, vf, qemuCmdFlags) < 0)
-                    pciVfRelease(vf);
-                pciFreeDevice(vf);
-            }
+        else
+            vf = NULL;
+        if (vf != NULL) {
+            if (qemuDomainMigrateAttachPciDevice(driver, vm, vf, qemuCmdFlags) < 0)
+                pciVfRelease(vf);
+            pciFreeDevice(vf);
         }
     }
 }
@@ -8686,7 +8706,7 @@ qemuDomainMigrateHybridVfOp(struct qemud_driver *driver,
  * ephemeral hostdevs are still attached, in which case this function has
  * been called before qemuMigrationRemoveEphemeralDevices() */
 static void
-qemuDomainMigrateRestoreHybridVfs(struct qemud_driver *driver,
+qemuDomainMigrateRestoreVfHotplug(struct qemud_driver *driver,
                                   virDomainObjPtr vm,
                                   unsigned long long qemuCmdFlags)
 {
@@ -8697,16 +8717,16 @@ qemuDomainMigrateRestoreHybridVfs(struct qemud_driver *driver,
             return;
     }
 
-    qemuDomainMigrateHybridVfOp(driver, vm, ifaceFindReservedVf, qemuCmdFlags);
+    qemuDomainMigrateVfHotplugOp(driver, vm, ifaceFindReservedVf, qemuCmdFlags);
 }
 
 /* Attach new VFs after migration */
 static void
-qemuDomainMigrateAttachHybridVfs(struct qemud_driver *driver,
+qemuDomainMigrateAttachVfHotplug(struct qemud_driver *driver,
                                  virDomainObjPtr vm,
                                  unsigned long long qemuCmdFlags)
 {
-    qemuDomainMigrateHybridVfOp(driver, vm, ifaceReserveFreeVf, qemuCmdFlags);
+    qemuDomainMigrateVfHotplugOp(driver, vm, ifaceReserveFreeVf, qemuCmdFlags);
 }
 
 /* Prepare is the first step, and it runs on the destination host.
@@ -9221,7 +9241,7 @@ static int doNativeMigrate(struct qemud_driver *driver,
 
 cleanup:
     if (ret != 0)
-        qemuDomainMigrateRestoreHybridVfs(driver, vm, qemuCmdFlags);
+        qemuDomainMigrateRestoreVfHotplug(driver, vm, qemuCmdFlags);
     qemuDomainObjMigrationFree(mig);
     xmlFreeURI(uribits);
     return ret;
@@ -9486,7 +9506,7 @@ finish:
 
 cleanup:
     if (retval != 0)
-        qemuDomainMigrateRestoreHybridVfs(driver, vm, qemuCmdFlags);
+        qemuDomainMigrateRestoreVfHotplug(driver, vm, qemuCmdFlags);
     VIR_FORCE_CLOSE(client_sock);
     VIR_FORCE_CLOSE(qemu_sock);
 
@@ -9869,7 +9889,7 @@ qemudDomainMigrateFinish2 (virConnectPtr dconn,
         }
 
         qemudVPAssociatePortProfiles(vm->def);
-        qemuDomainMigrateAttachHybridVfs(driver, vm, qemuCmdFlags);
+        qemuDomainMigrateAttachVfHotplug(driver, vm, qemuCmdFlags);
 
         if (flags & VIR_MIGRATE_PERSIST_DEST) {
             if (vm->persistent)

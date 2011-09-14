@@ -2854,6 +2854,7 @@ cleanup:
     VIR_FREE(devaddr);
     VIR_FREE(mode);
     virNWFilterHashTableFree(filterparams);
+    VIR_FREE(vf_fallback_mode);
 
     return def;
 
@@ -6313,36 +6314,28 @@ int virDomainDefAddImplicitControllers(virDomainDefPtr def)
     return 0;
 }
 
-static void
-virDomainDefFindHybridDevices(virDomainDefPtr def)
+static bool
+virDomainDefFindNetworkForDevice(virDomainDefPtr def,
+                                 pciDevice *pciDev)
 {
     unsigned char mac[VIR_MAC_STRING_BUFLEN];
-    pciDevice *pciDev;
-    int i, j;
+    int i;
 
-    for (i = 0; i < def->nhostdevs; i++) {
-        virDomainHostdevDefPtr hostdev = def->hostdevs[i];
-        if (hostdev->source.subsys.type == VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI) {
-            virDomainDevicePCIAddressPtr addr = &hostdev->source.subsys.u.pci;
-            pciDev = pciGetDevice(addr->domain, addr->bus, addr->slot, addr->function);
-            if (pciDev) {
-                if (pciDeviceIsVf(pciDev) &&
-                    !pciVfGetMacAddr(pciDev, mac)) {
-                    for (j = 0; j < def->nnets; j++) {
-                        virDomainNetDefPtr net = def->nets[j];
+    if (pciDeviceIsVf(pciDev) && !pciVfGetMacAddr(pciDev, mac)) {
+        for (i = 0; i < def->nnets; i++) {
+            virDomainNetDefPtr net = def->nets[i];
 
-                        if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
-                            net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID &&
-                            !virMacAddrCompare((char *)net->mac, (char *)mac)) {
-                            hostdev->ephemeral = true;
-                            break;
-                        }
-                    }
+            if (!virMacAddrCompare((char *)net->mac, (char *)mac)) {
+                if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
+                    net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
+                    /* TODO: verify that the ethdev for the PF matches */
+                    return true;
                 }
-                pciFreeDevice(pciDev);
             }
         }
     }
+
+    return false;
 }
 
 void
@@ -6351,7 +6344,7 @@ virDomainDefFindEphemeralDevices(virDomainDefPtr def)
     bool found = false;
     int i;
 
-    /* Are there any direct hybrid interfaces? */
+    /* Are there any direct vf-hotplug-hybrid or vf-hotplug interfaces? */
     for (i = 0; i < def->nnets; i++) {
         virDomainNetDefPtr net = def->nets[i];
         if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
@@ -6360,8 +6353,22 @@ virDomainDefFindEphemeralDevices(virDomainDefPtr def)
             break;
         }
     }
-    if (found)
-        virDomainDefFindHybridDevices(def);
+    if (!found)
+        return;
+
+    for (i = 0; i < def->nhostdevs; i++) {
+        virDomainHostdevDefPtr hostdev = def->hostdevs[i];
+        if (hostdev->source.subsys.type == VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI) {
+            virDomainDevicePCIAddressPtr addr = &hostdev->source.subsys.u.pci;
+            pciDevice *pciDev = pciGetDevice(addr->domain, addr->bus,
+                                             addr->slot, addr->function);
+            if (pciDev) {
+                if (virDomainDefFindNetworkForDevice(def, pciDev))
+                    hostdev->ephemeral = true;
+                pciFreeDevice(pciDev);
+            }
+        }
+    }
 }
 
 /************************************************************************

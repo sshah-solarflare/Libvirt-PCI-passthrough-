@@ -80,11 +80,13 @@ int pciWaitForDeviceCleanup(pciDevice *dev, const char *matcher);
 
 int pciDeviceIsVf(pciDevice *device);
 
+int pciVfGetVlanId(pciDevice *dev, unsigned int vlan_id);
+
 int pciVfGetMacAddr(pciDevice *dev, unsigned char *mac);
 
-int pciVfSetMacAddr(pciDevice *dev, const unsigned char *mac);
+int pciVfSetMacAddr(pciDevice *dev, const unsigned char *mac, unsigned int vlan_id);
 
-int pciVfReserve(pciDevice *dev, const unsigned char *mac);
+int pciVfReserve(pciDevice *dev, const unsigned char *mac, unsigned int vlan_id);
 
 int pciVfRelease(pciDevice *dev);
 

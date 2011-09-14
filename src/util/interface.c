@@ -430,13 +430,13 @@ ifaceGetVf(const char *ifname, unsigned num)
 }
 
 pciDevice *
-ifaceReserveFreeVf(const char *ifname, const unsigned char *mac)
+ifaceReserveFreeVf(const char *ifname, const unsigned char *mac, unsigned int vlan_id)
 {
     pciDevice *dev;
     unsigned int i;
 
     for (i = 0; (dev = ifaceGetVf(ifname, i)) != NULL; i++) {
-        if (!pciVfReserve(dev, mac))
+        if (!pciVfReserve(dev, mac, vlan_id))
             return dev;
         pciFreeDevice(dev);
     }
@@ -445,7 +445,7 @@ ifaceReserveFreeVf(const char *ifname, const unsigned char *mac)
 }
 
 pciDevice *
-ifaceFindReservedVf(const char *ifname, const unsigned char *mac)
+ifaceFindReservedVf(const char *ifname, const unsigned char *mac, unsigned int vlan_id)
 {
     pciDevice *dev;
     unsigned int i;
@@ -455,7 +455,10 @@ ifaceFindReservedVf(const char *ifname, const unsigned char *mac)
 
         if (!pciVfGetMacAddr(dev, devMac) &&
             !memcmp(devMac, mac, VIR_MAC_BUFLEN)) {
-            return dev;
+
+            if(!pciVfGetVlanId(dev, vlan_id)){
+                return dev;
+            }
         }
         pciFreeDevice(dev);
     }

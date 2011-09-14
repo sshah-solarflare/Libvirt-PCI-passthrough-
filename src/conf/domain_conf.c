@@ -2497,6 +2497,7 @@ virDomainNetDefParseXML(virCapsPtr caps,
     char *mode = NULL;
     char *vf_fallback_mode = NULL;
     char *vf_hotplug = NULL;
+    char *vlan_id = NULL;
     char *vf_hotplug_hybrid = NULL;
     virNWFilterHashTablePtr filterparams = NULL;
     virVirtualPortProfileParams virtPort;
@@ -2599,6 +2600,8 @@ virDomainNetDefParseXML(virCapsPtr caps,
             } else if (xmlStrEqual(cur->name, BAD_CAST "vf-hotplug")) {
                 vf_hotplug = virXMLPropString(cur, "source");
                 vf_hotplug_hybrid = virXMLPropString(cur, "hybrid");
+            } else if (xmlStrEqual(cur->name, BAD_CAST "vlan")) {
+                vlan_id = virXMLPropString(cur, "vlan-id");
             }
         }
         cur = cur->next;
@@ -2628,6 +2631,20 @@ virDomainNetDefParseXML(virCapsPtr caps,
         if (virDomainDeviceInfoParseXML(node, &def->info, flags) < 0)
             goto error;
     }
+    
+    // check that the base is correct in the following line
+    if (vlan_id != NULL) {
+        if (virStrToLong_ui((const char *)vlan_id, NULL, 10, &def->vlan_id) < 0) {
+            virDomainReportError(VIR_ERR_INTERNAL_ERROR,
+                                 _("Vlan ID is is negative '%s'"),
+                                 (const char *)vlan_id);
+            goto error;
+        }
+        else
+            vlan_id = NULL;
+    }
+    else
+        def->vlan_id = 0;
 
     if (vf_hotplug != NULL) {
         def->vf_hotplug = vf_hotplug;
@@ -2880,6 +2897,7 @@ cleanup:
     virNWFilterHashTableFree(filterparams);
     VIR_FREE(vf_fallback_mode);
     VIR_FREE(vf_hotplug);
+    VIR_FREE(vlan_id);
     VIR_FREE(vf_hotplug_hybrid);
 
     return def;
@@ -6981,6 +6999,7 @@ virDomainNetDefFormat(virBufferPtr buf,
     if (def->vf_hotplug)
         virBufferVSprintf(buf, "      <vf-hotplug source='%s' hybrid='%s'/>\n",
                           def->vf_hotplug, def->vf_hotplug_hybrid ? "yes" : "no");
+    virBufferVSprintf(buf, "      <vlan vlan-id='%d'/>\n", def->vlan_id);
     if (def->tune.sndbuf_specified) {
         virBufferAddLit(buf,   "      <tune>\n");
         virBufferVSprintf(buf, "        <sndbuf>%lu</sndbuf>\n", def->tune.sndbuf);

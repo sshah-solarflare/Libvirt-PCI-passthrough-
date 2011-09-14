@@ -1509,6 +1509,49 @@ int pciDeviceIsVf(pciDevice *device)
     return found;
 }
 
+int pciVfGetVlanId(pciDevice *dev, unsigned int vlan_id)
+{
+    char *node, *buf;
+    int rc;
+    unsigned int result=0;
+
+    if (virAsprintf(&node, PCI_SYSFS "devices/%s/tci", dev->name) < 0) {
+        virReportOOMError();
+        return -1;
+    }
+
+    rc = virFileReadAll(node, 6, &buf);
+    if (rc < 0) {
+        VIR_FREE(node);
+        return rc;
+    }
+    VIR_FREE(node);
+
+    /* The incoming buffer may not have a trailing NUL */
+    if (buf[rc - 1] != '\0') {
+        if (VIR_REALLOC_N(buf, rc + 1) < 0) {
+            virReportOOMError();
+            VIR_FREE(buf);
+            return -1;
+        }
+        buf[rc] = '\0';
+    }
+    
+    while(*buf != '\0')
+    {
+        result = (result * 10) + (*buf - '0');
+        buf++;
+    }
+    
+    if (result == vlan_id)
+        rc = 0;
+    else
+        rc = -1;
+
+    VIR_FREE(buf);
+    return rc;
+}
+
 int pciVfGetMacAddr(pciDevice *dev, unsigned char *mac)
 {
     char *node, *buf;
@@ -1541,10 +1584,11 @@ int pciVfGetMacAddr(pciDevice *dev, unsigned char *mac)
     return rc;
 }
 
-int pciVfSetMacAddr(pciDevice *dev, const unsigned char *mac)
+int pciVfSetMacAddr(pciDevice *dev, const unsigned char *mac, unsigned int vlan_id)
 {
     char *node;
     char macstr[VIR_MAC_STRING_BUFLEN];
+    char vlanstr[6];
     int rc;
 
     if (virAsprintf(&node, PCI_SYSFS "devices/%s/mac_addr", dev->name) < 0) {
@@ -1554,12 +1598,26 @@ int pciVfSetMacAddr(pciDevice *dev, const unsigned char *mac)
 
     virFormatMacAddr(mac, macstr);
     rc  = virFileWriteStr(node, macstr, 0);
+    
+    if (rc)
+        return -1;
+
+    if (virAsprintf(&node, PCI_SYSFS "devices/%s/tci", dev->name) < 0) {
+        virReportOOMError();
+        return -1;
+    }
+    sprintf(vlanstr,"%x",vlan_id);
+    rc = virFileWriteStr(node, vlanstr, 0);
+
+    if (rc)
+        return -1;
+
     VIR_FREE(node);
 
     return rc;
 }
 
-int pciVfReserve(pciDevice *dev, const unsigned char *mac)
+int pciVfReserve(pciDevice *dev, const unsigned char *mac, unsigned int vlan_id)
 {
     unsigned char old[VIR_MAC_BUFLEN];
     int rc;
@@ -1573,7 +1631,7 @@ int pciVfReserve(pciDevice *dev, const unsigned char *mac)
     if (!(mac[0] | mac[1] | mac[2] | mac[3] | mac[4] | mac[5]))
         return -1;      /* Can't reserve a VF with a zero mac address */
 
-    return pciVfSetMacAddr(dev, mac);
+    return pciVfSetMacAddr(dev, mac, vlan_id);
 }
 
 int pciVfRelease(pciDevice *device)
@@ -1581,7 +1639,7 @@ int pciVfRelease(pciDevice *device)
     unsigned char buf[VIR_MAC_BUFLEN];
 
     memset(buf, 0, sizeof(buf));
-    return pciVfSetMacAddr(device, buf);
+    return pciVfSetMacAddr(device, buf, 0);
 }
 
 char *pciFindIfaceName(pciDevice *device)

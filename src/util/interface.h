@@ -35,9 +35,9 @@ int ifaceGetVlanID(const char *vlanifname, int *vlanid);
 
 pciDevice *ifaceGetVf(const char *ifname, unsigned num);
 
-pciDevice *ifaceReserveFreeVf(const char *ifname, const unsigned char *mac);
+pciDevice *ifaceReserveFreeVf(const char *ifname, const unsigned char *mac, unsigned int vlan_id);
 
-pciDevice *ifaceFindReservedVf(const char *ifname, const unsigned char *mac);
+pciDevice *ifaceFindReservedVf(const char *ifname, const unsigned char *mac, unsigned int vlan_id);
 
 void ifaceAddRemoveSfcPeerDevice(const char *ifname, const unsigned char *mac,
                                  bool add);

@@ -1085,6 +1085,13 @@
         <ref name="deviceBoot"/>
       </optional>
       <optional>
+	<element name="vlan">
+	  <attribute name="vlan-id">
+	    <ref name="vlan_id"/>
+	  </attribute>
+	</element>
+      </optional>
+      <optional>
         <element name="vf-hotplug">
           <attribute name="source">
             <ref name="deviceName"/>
@@ -2387,9 +2394,14 @@
       </data>
     </choice>
   </define>
-  <define name="virtualPortProfileID">
+  <define name="vrtualPortProfileID">
     <data type="string">
       <param name="maxLength">39</param>
+    </data>
+  </define>
+  <define name='vlan_id'>
+    <data type="unsignedInt">
+      <param name="maxInclusive">4096</param>
     </data>
   </define>
 </grammar>

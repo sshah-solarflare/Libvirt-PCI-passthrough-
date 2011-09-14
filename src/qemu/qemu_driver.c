@@ -3112,36 +3112,38 @@ static int qemudStartVMDaemon(virConnectPtr conn,
 
     vm->def->id = driver->nextvmid++;
 
-    for(i = 0 ; i < vm->def->nnets ; i++) {
-         virDomainNetDefPtr net = vm->def->nets[i];
-         virDomainHostdevDefPtr dev;
-         virDomainDevicePCIAddressPtr addr;
-         pciDevice *vf;
+    if (vmop == VIR_VM_OP_CREATE) {
+        for(i = 0 ; i < vm->def->nnets ; i++) {
+            virDomainNetDefPtr net = vm->def->nets[i];
+            virDomainHostdevDefPtr dev;
+            virDomainDevicePCIAddressPtr addr;
+            pciDevice *vf;
 
-         if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
-             net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
-             vf = ifaceReserveFreeVf(net->data.direct.linkdev, net->mac);
-             if (vf != NULL) {
-                 if (VIR_ALLOC(dev) < 0) {
-                     virReportOOMError();
-                 } else {
-                     dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
-                     dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
-                     dev->ephemeral = true;
-                     addr = &dev->source.subsys.u.pci;
-                     pciGetAddress(vf, &addr->domain, &addr->bus, &addr->slot, &addr->function);
+            if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
+                net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
+                vf = ifaceReserveFreeVf(net->data.direct.linkdev, net->mac);
+                if (vf != NULL) {
+                    if (VIR_ALLOC(dev) < 0) {
+                        virReportOOMError();
+                    } else {
+                        dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
+                        dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+                        dev->ephemeral = true;
+                        addr = &dev->source.subsys.u.pci;
+                        pciGetAddress(vf, &addr->domain, &addr->bus, &addr->slot, &addr->function);
 
-                     if (VIR_REALLOC_N(vm->def->hostdevs, vm->def->nhostdevs+1) < 0) {
-                         virReportOOMError();
-                         VIR_FREE(dev);
-                     } else {
-                         vm->def->hostdevs[vm->def->nhostdevs] = dev;
-                         vm->def->nhostdevs++;
-                     }
-                 }
-                 pciFreeDevice(vf);
-             }
-         }
+                        if (VIR_REALLOC_N(vm->def->hostdevs, vm->def->nhostdevs+1) < 0) {
+                            virReportOOMError();
+                            VIR_FREE(dev);
+                        } else {
+                            vm->def->hostdevs[vm->def->nhostdevs] = dev;
+                            vm->def->nhostdevs++;
+                        }
+                    }
+                    pciFreeDevice(vf);
+                }
+            }
+        }
     }
 
     /* Must be run before security labelling */
@@ -8654,30 +8656,23 @@ qemuDomainMigrateAttachPciDevice(struct qemud_driver *driver,
     return 0;
 }
 
-/* Reattach the VFs that were present before migration */
+/* Reattach old/Attach new VFs */
 static void
-qemuDomainMigrateRestoreHybridVfs(struct qemud_driver *driver,
-                                  virDomainObjPtr vm,
-                                  unsigned long long qemuCmdFlags)
+qemuDomainMigrateHybridVfOp(struct qemud_driver *driver,
+                            virDomainObjPtr vm,
+                            pciDevice *(vfOp)(const char *, const unsigned char *),
+                            unsigned long long qemuCmdFlags)
 {
     virDomainNetDefPtr net;
     pciDevice *vf;
     int i;
-
-    /* Do nothing if any ephemeral hostdevs are still attached, in
-     * which case this function has been called before
-     * qemuDomainMigrateRemoveEphemeralDevices() */
-    for (i = 0; i < vm->def->nhostdevs; i++) {
-        if (vm->def->hostdevs[i]->ephemeral)
-            return;
-    }
 
     for (i = 0; i < vm->def->nnets; i++) {
         net = vm->def->nets[i];
 
         if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
             net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
-            vf = ifaceFindReservedVf(net->data.direct.linkdev, net->mac);
+            vf = vfOp(net->data.direct.linkdev, net->mac);
             if (vf != NULL) {
                 if (qemuDomainMigrateAttachPciDevice(driver, vm, vf, qemuCmdFlags) < 0)
                     pciVfRelease(vf);
@@ -8685,6 +8680,33 @@ qemuDomainMigrateRestoreHybridVfs(struct qemud_driver *driver,
             }
         }
     }
+}
+
+/* Reattach the VFs that were present before migration. Do nothing if any
+ * ephemeral hostdevs are still attached, in which case this function has
+ * been called before qemuMigrationRemoveEphemeralDevices() */
+static void
+qemuDomainMigrateRestoreHybridVfs(struct qemud_driver *driver,
+                                  virDomainObjPtr vm,
+                                  unsigned long long qemuCmdFlags)
+{
+    int i;
+
+    for (i = 0; i < vm->def->nhostdevs; i++) {
+        if (vm->def->hostdevs[i]->ephemeral)
+            return;
+    }
+
+    qemuDomainMigrateHybridVfOp(driver, vm, ifaceFindReservedVf, qemuCmdFlags);
+}
+
+/* Attach new VFs after migration */
+static void
+qemuDomainMigrateAttachHybridVfs(struct qemud_driver *driver,
+                                 virDomainObjPtr vm,
+                                 unsigned long long qemuCmdFlags)
+{
+    qemuDomainMigrateHybridVfOp(driver, vm, ifaceReserveFreeVf, qemuCmdFlags);
 }
 
 /* Prepare is the first step, and it runs on the destination host.
@@ -9798,6 +9820,7 @@ qemudDomainMigrateFinish2 (virConnectPtr dconn,
     virErrorPtr orig_err;
     int newVM = 1;
     qemuDomainObjPrivatePtr priv = NULL;
+    unsigned long long qemuCmdFlags;
 
     virCheckFlags(VIR_MIGRATE_LIVE |
                   VIR_MIGRATE_PEER2PEER |
@@ -9828,6 +9851,10 @@ qemudDomainMigrateFinish2 (virConnectPtr dconn,
     priv->jobActive = QEMU_JOB_NONE;
     memset(&priv->jobInfo, 0, sizeof(priv->jobInfo));
 
+    if (qemuCapsExtractVersionInfo(vm->def->emulator, vm->def->os.arch,
+                                   NULL, &qemuCmdFlags) < 0)
+        goto cleanup;
+
     if (qemuDomainObjBeginJobWithDriver(driver, vm) < 0)
         goto cleanup;
 
@@ -9842,6 +9869,7 @@ qemudDomainMigrateFinish2 (virConnectPtr dconn,
         }
 
         qemudVPAssociatePortProfiles(vm->def);
+        qemuDomainMigrateAttachHybridVfs(driver, vm, qemuCmdFlags);
 
         if (flags & VIR_MIGRATE_PERSIST_DEST) {
             if (vm->persistent)

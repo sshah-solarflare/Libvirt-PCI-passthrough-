@@ -1576,14 +1576,6 @@ int qemuDomainDetachNetDevice(struct qemud_driver *driver,
         }
     }
 
-    if (detach->vf_hotplug != NULL) {
-        pciDevice *vf = ifaceFindReservedVf(detach->vf_hotplug, detach->mac);
-        if (vf != NULL) {
-            pciVfRelease(vf);
-            pciFreeDevice(vf);
-        }
-    }
-
     if (vm->def->nnets > 1) {
         memmove(vm->def->nets + i,
                 vm->def->nets + i + 1,

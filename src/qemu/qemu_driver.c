@@ -3094,6 +3094,42 @@ static void qemuVfHotplugAddHostdev(virDomainObjPtr vm,
 }
 
 static void
+qemuVfHotplugDetachLive(struct qemud_driver *driver,
+                        virDomainObjPtr vm,
+                        const char *linkdev,
+                        const unsigned char *mac,
+                        unsigned long long qemuCmdFlags)
+{
+    pciDevice *vf;
+    virDomainDevicePCIAddress addr;
+    unsigned int i;
+    virDomainDeviceDef def;
+
+    vf = ifaceFindReservedVf(linkdev,mac);
+    if (vf != NULL) {
+        pciGetAddress(vf, &addr.domain, &addr.bus, &addr.slot, &addr.function);
+
+        i=0;
+        while(i < vm->def->nhostdevs) {
+            def.type = VIR_DOMAIN_DEVICE_HOSTDEV;
+            def.data.hostdev = vm->def->hostdevs[i];
+            if(def.data.hostdev->source.subsys.u.pci.domain == addr.domain && 
+               def.data.hostdev->source.subsys.u.pci.bus == addr.bus &&
+               def.data.hostdev->source.subsys.u.pci.slot == addr.slot &&
+               def.data.hostdev->source.subsys.u.pci.function == addr.function) {
+                pciVfRelease(vf);
+                pciFreeDevice(vf);
+                qemuDomainDetachHostDevice(driver, vm, &def, qemuCmdFlags);
+                break;
+            }
+            else
+                i++;
+        }
+    }
+}
+
+
+static void
 qemuVfHotplugAttachLive(struct qemud_driver *driver,
                         virDomainObjPtr vm,
                         const char *linkdev,
@@ -3655,7 +3691,14 @@ static void qemudShutdownVMDaemon(struct qemud_driver *driver,
         virDomainNetDefPtr net = def->nets[i];
 #if WITH_MACVTAP
         if (net->type == VIR_DOMAIN_NET_TYPE_DIRECT) {
-            qemuPhysIfaceDisconnect(net);
+            if (net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
+                pciDevice *vf = ifaceFindReservedVf(net->data.direct.linkdev, net->mac);
+                if (vf != NULL) {
+                    pciVfRelease(vf);
+                    pciFreeDevice(vf);
+                }
+                qemuPhysIfaceDisconnect(net);
+            }
         }
 #endif
         if (net->type == VIR_DOMAIN_NET_TYPE_BRIDGE)
@@ -6775,7 +6818,6 @@ static int qemudNumDefinedDomains(virConnectPtr conn) {
     return n;
 }
 
-
 static int qemudDomainObjStart(virConnectPtr conn,
                                struct qemud_driver *driver,
                                virDomainObjPtr vm,
@@ -7419,6 +7461,13 @@ static int qemudDomainDetachDevice(virDomainPtr dom,
                             _("This type of disk cannot be hot unplugged"));
         }
     } else if (dev->type == VIR_DOMAIN_DEVICE_NET) {
+        if (dev->data.net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
+            dev->data.net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
+            qemuVfHotplugDetachLive(driver, vm, dev->data.net->data.direct.linkdev,
+                                    dev->data.net->mac, qemuCmdFlags);
+        else if (dev->data.net->vf_hotplug != NULL)
+            qemuVfHotplugDetachLive(driver, vm, dev->data.net->vf_hotplug,
+                                    dev->data.net->mac, qemuCmdFlags);
         ret = qemuDomainDetachNetDevice(driver, vm, dev, qemuCmdFlags);
     } else if (dev->type == VIR_DOMAIN_DEVICE_CONTROLLER) {
         if (dev->data.controller->type == VIR_DOMAIN_CONTROLLER_TYPE_SCSI) {

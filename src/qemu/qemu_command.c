@@ -179,16 +179,6 @@ int
 qemuPhysIfaceDisconnect(virDomainNetDefPtr net)
 {
 #if WITH_MACVTAP
-    pciDevice *vf;
-
-    if (net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID) {
-        vf = ifaceFindReservedVf(net->data.direct.linkdev, net->mac);
-        if (vf != NULL) {
-            pciVfRelease(vf);
-            pciFreeDevice(vf);
-        }
-    }
-
     delMacvtap(net->ifname, net->mac, net->data.direct.linkdev,
                &net->data.direct.virtPortProfile);
     VIR_FREE(net->ifname);

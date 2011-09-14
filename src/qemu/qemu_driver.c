@@ -9981,6 +9981,9 @@ qemudDomainMigrateFinish2 (virConnectPtr dconn,
                 goto endjob;
             }
 
+            /* Make the VM transient again to match qemuProcessStart */
+            virDomainObjSetDefTransient(driver->caps, vm, true);
+
             event = virDomainEventNewFromObj(vm,
                                              VIR_DOMAIN_EVENT_DEFINED,
                                              newVM ?

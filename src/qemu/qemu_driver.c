@@ -3070,11 +3070,13 @@ static void qemuVfHotplugAddHostdev(virDomainObjPtr vm,
 
     vf = ifaceReserveFreeVf(linkdev, mac);
     if (vf != NULL) {
+        pciDeviceSetManaged(vf, true);
         if (VIR_ALLOC(dev) < 0) {
             virReportOOMError();
         } else {
             dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
             dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+            dev->managed = pciDeviceGetManaged(vf);
             dev->ephemeral = true;
             addr = &dev->source.subsys.u.pci;
             pciGetAddress(vf, &addr->domain, &addr->bus, &addr->slot, &addr->function);
@@ -3105,11 +3107,13 @@ qemuVfHotplugAttachLive(struct qemud_driver *driver,
 
     vf = ifaceReserveFreeVf(linkdev, mac);
     if (vf != NULL) {
+        pciDeviceSetManaged(vf, true);
         if(VIR_ALLOC(def) < 0) {
             virReportOOMError();
         } else {
             def->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
             def->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+            def->managed = pciDeviceGetManaged(vf);
             def->ephemeral = true;
 
             addr = &def->source.subsys.u.pci;
@@ -8676,6 +8680,7 @@ qemuDomainMigrateAttachPciDevice(struct qemud_driver *driver,
     hostdev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
     hostdev->source.subsys.type =
         VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+    hostdev->managed = pciDeviceGetManaged(dev);
     hostdev->ephemeral = true;
     addr = &hostdev->source.subsys.u.pci;
     pciGetAddress(dev, &addr->domain, &addr->bus,
@@ -8710,6 +8715,7 @@ qemuDomainMigrateVfHotplugOp(struct qemud_driver *driver,
         else
             vf = NULL;
         if (vf != NULL) {
+            pciDeviceSetManaged(vf, true);
             if (qemuDomainMigrateAttachPciDevice(driver, vm, vf, qemuCmdFlags) < 0)
                 pciVfRelease(vf);
             pciFreeDevice(vf);

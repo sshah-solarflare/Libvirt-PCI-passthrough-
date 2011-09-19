@@ -879,7 +879,7 @@ int qemuDomainAttachHostPciDevice(struct qemud_driver *driver,
     VIR_FORCE_CLOSE(configfd);
 
     /* Don't issue back to back attach/detach */
-    sleep(1);
+    sleep(5);
 
     return 0;
 
@@ -1700,7 +1700,7 @@ int qemuDomainDetachHostPciDevice(struct qemud_driver *driver,
     virDomainHostdevDefFree(detach);
 
     /* Don't issue back to back attach/detach */
-    sleep(1);
+    sleep(5);
 
     return ret;
 }

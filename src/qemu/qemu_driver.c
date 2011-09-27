@@ -7244,7 +7244,6 @@ static int qemudDomainAttachDevice(virDomainPtr dom,
         ret = qemuDomainAttachNetDevice(dom->conn, driver, vm,
                                         dev->data.net, qemuCmdFlags);
         if (ret == 0) {
-            dev->data.net = NULL;
 
             if (dev->data.net->type == VIR_DOMAIN_NET_TYPE_DIRECT &&
                 dev->data.net->data.direct.mode == VIR_DOMAIN_NETDEV_MACVTAP_MODE_VF_HOTPLUG_HYBRID)
@@ -7254,6 +7253,8 @@ static int qemudDomainAttachDevice(virDomainPtr dom,
                 qemuVfHotplugAttachLive(driver, vm, dev->data.net->vf_hotplug,
                                         dev->data.net->mac, dev->data.net->vf_hotplug_vlan,
                                         qemuCmdFlags);
+	    else
+		dev->data.net = NULL;
         }
     } else if (dev->type == VIR_DOMAIN_DEVICE_HOSTDEV) {
         ret = qemuDomainAttachHostDevice(driver, vm,

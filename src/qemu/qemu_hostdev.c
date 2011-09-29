@@ -285,4 +285,7 @@ void qemuDomainReAttachHostDevices(struct qemud_driver *driver,
         return;
 
     qemuDomainReAttachHostdevDevices(driver, def->hostdevs, def->nhostdevs);
+
+    /* Don't issue back to back attach/detach */
+    sleep(5);
 }

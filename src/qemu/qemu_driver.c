@@ -3159,7 +3159,7 @@ qemuVfHotplugAttachLive(struct qemud_driver *driver,
             pciGetAddress(vf, &addr->domain, &addr->bus, &addr->slot,
                           &addr->function);
             ret = qemuDomainAttachHostDevice(driver, vm, def, qemuCmdFlags);
-            if(!ret) {
+            if (ret) {
                 qemuReportError(VIR_ERR_INTERNAL_ERROR,
                                 _("Could not hotplug VF on linkdev %s"),
                                 linkdev);

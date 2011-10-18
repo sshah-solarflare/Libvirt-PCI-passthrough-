@@ -45,4 +45,6 @@ void ifaceAddRemoveSfcPeerDevice(const char *ifname, const unsigned char *mac,
 void ifaceAddRemoveSfcPeerBridge(const char *ifname, const unsigned char *mac,
                                  bool add);
 
+int ifaceGetVlanDevice(const char *vlanifname, char **iface);
+
 #endif /* __VIR_INTERFACE_H__ */

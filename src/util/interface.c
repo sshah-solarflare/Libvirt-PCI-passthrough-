@@ -468,18 +468,59 @@ ifaceFindReservedVf(const char *ifname, const unsigned char *mac, unsigned int v
     return NULL;
 }
 
+int
+ifaceGetVlanDevice(const char *vlanifname, char **iface)
+{
+  struct vlan_ioctl_args vlanargs = {
+    .cmd = GET_VLAN_REALDEV_NAME_CMD,
+  };
+  int rc = 0;
+  int fd = socket(PF_PACKET, SOCK_DGRAM, 0);
+
+  if (fd < 0)
+    return errno;
+
+  if (virStrcpyStatic(vlanargs.device1, vlanifname) == NULL) {
+    rc = EINVAL;
+    goto err_exit;
+  }
+
+  if (ioctl(fd, SIOCGIFVLAN, &vlanargs) != 0) {
+    rc = errno;
+    goto err_exit;
+  }
+
+  *iface = strndup(vlanargs.u.device2, sizeof(vlanargs.u.device2));
+
+ err_exit:
+  VIR_FORCE_CLOSE(fd);
+  
+  return rc;
+}
+
+
 void
 ifaceAddRemoveSfcPeerDevice(const char *ifname, const unsigned char *mac, bool add)
 {
     char *node, *line;
     int rc;
+   char *parent = NULL;
 
-    if (virAsprintf(&node, "/sys/class/net/%s/device/local_addrs", ifname) < 0) {
-        virReportOOMError();
-        return;
+    rc = ifaceGetVlanDevice(ifname, &parent);
+    if (rc) {
+        if (virAsprintf(&node, "/sys/class/net/%s/device/local_addrs", ifname) < 0) {
+            virReportOOMError();
+            return;
+        }
+    }
+    else {
+        if (virAsprintf(&node, "/sys/class/net/%s/device/local_addrs", parent) < 0) {
+            virReportOOMError();
+            return;
+        }
     }
 
-    if (VIR_ALLOC_N(line, VIR_MAC_STRING_BUFLEN + 1) < 0) {
+   if (VIR_ALLOC_N(line, VIR_MAC_STRING_BUFLEN + 1) < 0) {
         VIR_FREE(node);
         virReportOOMError();
         return;

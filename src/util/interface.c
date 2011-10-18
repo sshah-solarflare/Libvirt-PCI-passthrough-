@@ -471,31 +471,31 @@ ifaceFindReservedVf(const char *ifname, const unsigned char *mac, unsigned int v
 int
 ifaceGetVlanDevice(const char *vlanifname, char **iface)
 {
-  struct vlan_ioctl_args vlanargs = {
-    .cmd = GET_VLAN_REALDEV_NAME_CMD,
-  };
-  int rc = 0;
-  int fd = socket(PF_PACKET, SOCK_DGRAM, 0);
-
-  if (fd < 0)
-    return errno;
-
-  if (virStrcpyStatic(vlanargs.device1, vlanifname) == NULL) {
-    rc = EINVAL;
-    goto err_exit;
-  }
-
-  if (ioctl(fd, SIOCGIFVLAN, &vlanargs) != 0) {
-    rc = errno;
-    goto err_exit;
-  }
-
-  *iface = strndup(vlanargs.u.device2, sizeof(vlanargs.u.device2));
-
- err_exit:
-  VIR_FORCE_CLOSE(fd);
-  
-  return rc;
+    struct vlan_ioctl_args vlanargs = {
+        .cmd = GET_VLAN_REALDEV_NAME_CMD,
+    };
+    int rc = 0;
+    int fd = socket(PF_PACKET, SOCK_DGRAM, 0);
+    
+    if (fd < 0)
+        return errno;
+    
+    if (virStrcpyStatic(vlanargs.device1, vlanifname) == NULL) {
+        rc = EINVAL;
+        goto err_exit;
+    }
+    
+    if (ioctl(fd, SIOCGIFVLAN, &vlanargs) != 0) {
+        rc = errno;
+        goto err_exit;
+    }
+    
+    *iface = strndup(vlanargs.u.device2, sizeof(vlanargs.u.device2));
+    
+err_exit:
+    VIR_FORCE_CLOSE(fd);
+    
+    return rc;
 }
 
 
@@ -536,6 +536,7 @@ ifaceAddRemoveSfcPeerDevice(const char *ifname, const unsigned char *mac, bool a
 
     VIR_FREE(line);
     VIR_FREE(node);
+    free(parent);
 }
 
 void

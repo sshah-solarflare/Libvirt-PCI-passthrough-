@@ -33,7 +33,7 @@
 # include <yajl/yajl_gen.h>
 # include <yajl/yajl_parse.h>
 #else
-#error really bad
+# error really bad
 #endif
 
 /* XXX fixme */

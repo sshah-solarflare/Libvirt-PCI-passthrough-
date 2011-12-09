@@ -1990,6 +1990,22 @@ out:
 }
 
 /*
+ * Returns a path to the PCI sysfs file given the BDF of the PCI function
+ */
+
+int
+pciSysfsFile(char *pciDeviceName, char **pci_sysfs_device_link)
+{
+    if (virAsprintf(pci_sysfs_device_link, PCI_SYSFS "devices/%s",
+                    pciDeviceName) < 0) {
+        virReportOOMError();
+        return -1;
+    }
+    
+    return 0;
+}
+
+/*
  * Returns the network device name of a pci device
  */
 int

@@ -100,4 +100,6 @@ int pciGetVirtualFunctionIndex(const char *pf_sysfs_device_link,
 
 int pciDeviceNetName(char *device_link_sysfs_path, char **netname);
 
+int pciSysfsFile(char *pciDeviceName, char **pci_sysfs_device_link);
+
 #endif /* __VIR_PCI_H__ */

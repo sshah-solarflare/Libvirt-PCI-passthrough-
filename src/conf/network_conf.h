@@ -144,6 +144,9 @@ struct _virNetworkDef {
     /* If there are multiple forward devices (i.e. a pool of
      * interfaces), they will be listed here.
      */
+    size_t nForwardPfs;
+    virNetworkForwardIfDefPtr forwardPfs;
+    
     size_t nForwardIfs;
     virNetworkForwardIfDefPtr forwardIfs;
 

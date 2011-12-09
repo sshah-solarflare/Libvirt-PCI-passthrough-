@@ -92,6 +92,13 @@
                 </attribute>
               </element>
             </zeroOrMore>
+            <optional>
+              <element name='pf'>
+                <attribute name='dev'>
+                  <ref name='deviceName'/>
+                </attribute>
+              </element>
+            </optional>
           </element>
         </optional>
 

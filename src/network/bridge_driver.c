@@ -2546,7 +2546,7 @@ static char *networkGetXMLDesc(virNetworkPtr net,
     virNetworkObjPtr network;
     char *ret = NULL;
 
-    virCheckFlags(0, NULL);
+    virCheckFlags(VIR_NETWORK_XML_INACTIVE, NULL);
 
     networkDriverLock(driver);
     network = virNetworkFindByUUID(&driver->networks, net->uuid);
@@ -2558,7 +2558,7 @@ static char *networkGetXMLDesc(virNetworkPtr net,
         goto cleanup;
     }
 
-    ret = virNetworkDefFormat(network->def);
+    ret = virNetworkDefFormat(network->def, flags);
 
 cleanup:
     if (network)

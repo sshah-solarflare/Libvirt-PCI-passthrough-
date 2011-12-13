@@ -3257,7 +3257,7 @@ static char *testNetworkGetXMLDesc(virNetworkPtr network,
         goto cleanup;
     }
 
-    ret = virNetworkDefFormat(privnet->def);
+    ret = virNetworkDefFormat(privnet->def, flags);
 
 cleanup:
     if (privnet)

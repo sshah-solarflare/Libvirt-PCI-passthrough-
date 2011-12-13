@@ -30,7 +30,7 @@ testCompareXMLToXMLFiles(const char *inxml, const char *outxml)
     if (!(dev = virNetworkDefParseString(inXmlData)))
         goto fail;
 
-    if (!(actual = virNetworkDefFormat(dev)))
+    if (!(actual = virNetworkDefFormat(dev, 0)))
         goto fail;
 
     if (STRNEQ(outXmlData, actual)) {

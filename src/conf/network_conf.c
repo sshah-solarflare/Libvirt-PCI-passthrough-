@@ -1323,7 +1323,7 @@ virPortGroupDefFormat(virBufferPtr buf,
     virBufferAddLit(buf, "  </portgroup>\n");
 }
 
-char *virNetworkDefFormat(const virNetworkDefPtr def)
+char *virNetworkDefFormat(const virNetworkDefPtr def, unsigned int flags)
 {
     virBuffer buf = VIR_BUFFER_INITIALIZER;
     unsigned char *uuid;
@@ -1363,6 +1363,9 @@ char *virNetworkDefFormat(const virNetworkDefPtr def)
             }
         }
 
+        if (flags && def->nForwardPfs) 
+            goto escape;
+
         if (def->nForwardIfs) {
             for (ii = 0; ii < def->nForwardIfs; ii++) {
                 if (def->forwardIfs[ii].dev) {
@@ -1370,8 +1373,9 @@ char *virNetworkDefFormat(const virNetworkDefPtr def)
                                           def->forwardIfs[ii].dev);
                 }
             }
-            virBufferAddLit(&buf, "  </forward>\n");
         }
+    escape:
+        virBufferAddLit(&buf, "  </forward>\n");
     }
 
     if (def->forwardType == VIR_NETWORK_FORWARD_NONE ||
@@ -1505,7 +1509,7 @@ int virNetworkSaveConfig(const char *configDir,
     int ret = -1;
     char *xml;
 
-    if (!(xml = virNetworkDefFormat(def)))
+    if (!(xml = virNetworkDefFormat(def, 0)))
         goto cleanup;
 
     if (virNetworkSaveXML(configDir, def, xml))

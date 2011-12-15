@@ -2620,6 +2620,9 @@ qemuProcessReconnect(void *opaque)
     if (qemuProcessFiltersInstantiate(conn, obj->def))
         goto error;
 
+    if (qemuDomainCheckEjectableMedia(driver, obj) < 0)
+        goto error;
+
     if (qemuProcessRecoverJob(driver, obj, conn, &oldjob) < 0)
         goto error;
 

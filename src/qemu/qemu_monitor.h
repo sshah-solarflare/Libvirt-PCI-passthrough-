@@ -28,6 +28,7 @@
 # include "internal.h"
 
 # include "domain_conf.h"
+# include "qemu_conf.h"
 # include "hash.h"
 
 typedef struct _qemuMonitor qemuMonitor;
@@ -231,6 +232,9 @@ int qemuMonitorGetBalloonInfo(qemuMonitorPtr mon,
 int qemuMonitorGetMemoryStats(qemuMonitorPtr mon,
                               virDomainMemoryStatPtr stats,
                               unsigned int nr_stats);
+int qemuMonitorGetBlockInfo(qemuMonitorPtr mon,
+                            const char *devname,
+                            struct qemuDomainDiskInfo *info);
 int qemuMonitorGetBlockStatsInfo(qemuMonitorPtr mon,
                                  const char *devname,
                                  long long *rd_req,

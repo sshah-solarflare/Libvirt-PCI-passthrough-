@@ -420,7 +420,7 @@ VIR_ENUM_IMPL(virDomainHostdevSubsys, VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_LAST,
               "usb",
               "pci")
 
-VIR_ENUM_IMPL(virDomainState, VIR_DOMAIN_CRASHED+1,
+VIR_ENUM_IMPL(virDomainState, VIR_DOMAIN_LAST,
               "nostate",
               "running",
               "blocked",
@@ -428,6 +428,17 @@ VIR_ENUM_IMPL(virDomainState, VIR_DOMAIN_CRASHED+1,
               "shutdown",
               "shutoff",
               "crashed")
+
+/* virDomainSnapshotState is really virDomainState plus one extra state */
+VIR_ENUM_IMPL(virDomainSnapshotState, VIR_DOMAIN_DISK_SNAPSHOT+1,
+              "nostate",
+              "running",
+              "blocked",
+              "paused",
+              "shutdown",
+              "shutoff",
+              "crashed",
+              "disk-snapshot")
 
 #define VIR_DOMAIN_NOSTATE_LAST (VIR_DOMAIN_NOSTATE_UNKNOWN + 1)
 VIR_ENUM_IMPL(virDomainNostateReason, VIR_DOMAIN_NOSTATE_LAST,
@@ -11072,7 +11083,7 @@ virDomainSnapshotDefParseString(const char *xmlStr,
                                  _("missing state from existing snapshot"));
             goto cleanup;
         }
-        def->state = virDomainStateTypeFromString(state);
+        def->state = virDomainSnapshotStateTypeFromString(state);
         if (def->state < 0) {
             virDomainReportError(VIR_ERR_INTERNAL_ERROR,
                                  _("Invalid state '%s' in domain snapshot XML"),
@@ -11145,7 +11156,7 @@ char *virDomainSnapshotDefFormat(char *domain_uuid,
         virBufferEscapeString(&buf, "  <description>%s</description>\n",
                               def->description);
     virBufferAsprintf(&buf, "  <state>%s</state>\n",
-                      virDomainStateTypeToString(def->state));
+                      virDomainSnapshotStateTypeToString(def->state));
     if (def->parent) {
         virBufferAddLit(&buf, "  <parent>\n");
         virBufferEscapeString(&buf, "    <name>%s</name>\n", def->parent);
@@ -11725,6 +11736,7 @@ virDomainObjSetState(virDomainObjPtr dom, virDomainState state, int reason)
     case VIR_DOMAIN_SHUTDOWN:   last = VIR_DOMAIN_SHUTDOWN_LAST;    break;
     case VIR_DOMAIN_SHUTOFF:    last = VIR_DOMAIN_SHUTOFF_LAST;     break;
     case VIR_DOMAIN_CRASHED:    last = VIR_DOMAIN_CRASHED_LAST;     break;
+    default: last = -1;
     }
 
     if (last < 0) {
@@ -11758,9 +11770,9 @@ virDomainStateReasonToString(virDomainState state, int reason)
         return virDomainShutoffReasonTypeToString(reason);
     case VIR_DOMAIN_CRASHED:
         return virDomainCrashedReasonTypeToString(reason);
+    default:
+        return NULL;
     }
-
-    return NULL;
 }
 
 
@@ -11782,9 +11794,9 @@ virDomainStateReasonFromString(virDomainState state, const char *reason)
         return virDomainShutoffReasonTypeFromString(reason);
     case VIR_DOMAIN_CRASHED:
         return virDomainCrashedReasonTypeFromString(reason);
+    default:
+        return -1;
     }
-
-    return -1;
 }
 
 

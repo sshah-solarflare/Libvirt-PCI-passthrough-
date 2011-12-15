@@ -772,6 +772,13 @@ mymain(void)
     setpgid(0, 0);
     setsid();
 
+
+    /* Prime the debug/verbose settings from the env vars,
+     * since we're about to reset 'environ' */
+    virTestGetDebug();
+    virTestGetVerbose();
+
+    virInitialize();
     /* Kill off any inherited fds that might interfere with our
      * testing.  */
     fd = 3;
@@ -780,8 +787,6 @@ mymain(void)
     VIR_FORCE_CLOSE(fd);
     fd = 5;
     VIR_FORCE_CLOSE(fd);
-
-    virInitialize();
 
     environ = (char **)newenv;
 

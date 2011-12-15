@@ -4848,6 +4848,7 @@ qemuDomainUndefineFlags(virDomainPtr dom,
     virDomainEventPtr event = NULL;
     char *name = NULL;
     int ret = -1;
+    int nsnapshots;
 
     virCheckFlags(VIR_DOMAIN_UNDEFINE_MANAGED_SAVE, -1);
 
@@ -4859,6 +4860,14 @@ qemuDomainUndefineFlags(virDomainPtr dom,
         virUUIDFormat(dom->uuid, uuidstr);
         qemuReportError(VIR_ERR_NO_DOMAIN,
                         _("no domain with matching uuid '%s'"), uuidstr);
+        goto cleanup;
+    }
+
+    if (!virDomainObjIsActive(vm) &&
+        (nsnapshots = virDomainSnapshotObjListNum(&vm->snapshots, 0))) {
+        qemuReportError(VIR_ERR_OPERATION_INVALID,
+                        _("cannot delete inactive domain with %d snapshots"),
+                        nsnapshots);
         goto cleanup;
     }
 

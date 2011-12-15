@@ -2472,22 +2472,30 @@ int qemuMonitorSendKey(qemuMonitorPtr mon,
 }
 
 int qemuMonitorScreendump(qemuMonitorPtr mon,
-                          const char *file)
+                          const char *file,
+                          const char *id)
 {
     int ret;
 
-    VIR_DEBUG("mon=%p, file=%s", mon, file);
+    VIR_DEBUG("mon=%p, file=%s, id=%s", mon, file, id);
 
     if (!mon) {
-        qemuReportError(VIR_ERR_INVALID_ARG,"%s",
+        qemuReportError(VIR_ERR_INVALID_ARG, "%s",
                         _("monitor must not be NULL"));
         return -1;
     }
 
-    if (mon->json)
-        ret = qemuMonitorJSONScreendump(mon, file);
-    else
-        ret = qemuMonitorTextScreendump(mon, file);
+    if (id) {
+        if (mon->json)
+            ret = qemuMonitorJSONScreendumpRH(mon, file, id);
+        else
+            ret = -1;
+    } else {
+        if (mon->json)
+            ret = qemuMonitorJSONScreendump(mon, file);
+        else
+            ret = qemuMonitorTextScreendump(mon, file);
+    }
     return ret;
 }
 

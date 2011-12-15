@@ -460,7 +460,8 @@ int qemuMonitorArbitraryCommand(qemuMonitorPtr mon,
 int qemuMonitorInjectNMI(qemuMonitorPtr mon);
 
 int qemuMonitorScreendump(qemuMonitorPtr mon,
-                          const char *file);
+                          const char *file,
+                          const char *id);
 
 int qemuMonitorSendKey(qemuMonitorPtr mon,
                        unsigned int holdtime,

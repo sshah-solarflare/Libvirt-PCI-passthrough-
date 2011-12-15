@@ -227,6 +227,10 @@ int qemuMonitorJSONSendKey(qemuMonitorPtr mon,
                            unsigned int *keycodes,
                            unsigned int nkeycodes);
 
+int qemuMonitorJSONScreendumpRH(qemuMonitorPtr mon,
+                                const char *file,
+                                const char *id);
+
 int qemuMonitorJSONScreendump(qemuMonitorPtr mon,
                               const char *file);
 

@@ -2868,6 +2868,8 @@ qemuDomainScreenshot(virDomainPtr dom,
     int tmp_fd = -1;
     char *ret = NULL;
     bool unlink_tmp = false;
+    int video_index = 0;
+    const char *video_id = NULL;
 
     virCheckFlags(0, NULL);
 
@@ -2894,12 +2896,16 @@ qemuDomainScreenshot(virDomainPtr dom,
         goto endjob;
     }
 
-    /* Well, even if qemu allows multiple graphic cards, heads, whatever,
-     * screenshot command does not */
-    if (screen) {
+    while (video_index < vm->def->nvideos) {
+        if (screen < vm->def->videos[video_index]->heads)
+            break;
+        screen -= vm->def->videos[video_index]->heads;
+        video_index++;
+    }
+
+    if (video_index == vm->def->nvideos) {
         qemuReportError(VIR_ERR_INVALID_ARG,
-                        "%s", _("currently is supported only taking "
-                                "screenshots of screen ID 0"));
+                        "%s", _("no such screen"));
         goto endjob;
     }
 
@@ -2916,8 +2922,12 @@ qemuDomainScreenshot(virDomainPtr dom,
 
     virSecurityManagerSetSavedStateLabel(qemu_driver->securityManager, vm, tmp);
 
+    if (video_index) {
+        video_id = vm->def->videos[video_index]->info.alias;
+    }
+
     qemuDomainObjEnterMonitor(driver, vm);
-    if (qemuMonitorScreendump(priv->mon, tmp) < 0) {
+    if (qemuMonitorScreendump(priv->mon, tmp, video_id) < 0) {
         qemuDomainObjExitMonitor(driver, vm);
         goto endjob;
     }

@@ -12634,7 +12634,7 @@ cmdSnapshotList(vshControl *ctl, const vshCmd *cmd)
     if (vshCommandOptBool(cmd, "parent")) {
         if (vshCommandOptBool(cmd, "roots")) {
             vshError(ctl, "%s",
-                     _("--parent and --roots are mutually exlusive"));
+                     _("--parent and --roots are mutually exclusive"));
             return false;
         }
         parent_filter = 1;

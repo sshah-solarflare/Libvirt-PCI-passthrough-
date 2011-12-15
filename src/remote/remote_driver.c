@@ -3231,6 +3231,7 @@ no_memory:
         VIR_FREE(subject->identities);
         VIR_FREE(subject);
     }
+    virDomainFree(dom);
     return;
 }
 

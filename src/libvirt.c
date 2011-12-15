@@ -1806,7 +1806,7 @@ virDomainGetConnect (virDomainPtr dom)
  * object is finally released. This will also happen if the
  * client application crashes / looses its connection to the
  * libvirtd daemon. Any domains marked for auto destroy will
- * block attempts at migration or save-to-file
+ * block attempts at migration, save-to-file, or snapshots.
  *
  * Returns a new domain object or NULL in case of failure
  */
@@ -7042,7 +7042,7 @@ error:
  * object is finally released. This will also happen if the
  * client application crashes / looses its connection to the
  * libvirtd daemon. Any domains marked for auto destroy will
- * block attempts at migration or save-to-file
+ * block attempts at migration, save-to-file, or snapshots.
  *
  * If the VIR_DOMAIN_START_BYPASS_CACHE flag is set, and there is a
  * managed save file for this domain (created by virDomainManagedSave()),

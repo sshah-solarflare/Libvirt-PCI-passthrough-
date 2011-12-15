@@ -861,7 +861,7 @@ int qemuDomainAttachHostPciDevice(struct qemud_driver *driver,
         return -1;
     }
 
-    if (qemuPrepareHostdevPCIDevices(driver, &hostdev, 1) < 0)
+    if (qemuPrepareHostdevPCIDevices(driver, vm->def->name, &hostdev, 1) < 0)
         return -1;
 
     if (qemuCapsGet(priv->qemuCaps, QEMU_CAPS_DEVICE)) {
@@ -927,7 +927,7 @@ error:
                                         hostdev->info.addr.pci.slot) < 0)
         VIR_WARN("Unable to release PCI address on host device");
 
-    qemuDomainReAttachHostdevDevices(driver, &hostdev, 1);
+    qemuDomainReAttachHostdevDevices(driver, vm->def->name, &hostdev, 1);
 
     VIR_FREE(devstr);
     VIR_FREE(configfd_name);

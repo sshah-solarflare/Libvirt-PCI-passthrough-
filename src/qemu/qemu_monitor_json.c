@@ -2042,8 +2042,36 @@ int qemuMonitorJSONGraphicsRelocate(qemuMonitorPtr mon,
 
     ret = qemuMonitorJSONCommand(mon, cmd, &reply);
 
+    if (ret == 0) {
+        if (!qemuMonitorJSONHasError(reply, "CommandNotFound")) {
+            goto cleanup;
+        }
+    }
+    virJSONValueFree(cmd);
+    virJSONValueFree(reply);
+
+    /*
+     * Try the RHEL specific way if the upstream command is not found
+     * but it's limited to spice graphics
+     */
+    if (type != VIR_DOMAIN_GRAPHICS_TYPE_SPICE) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR, "%s",
+                        _("only spice graphics support client relocation"));
+        return -1;
+    }
+
+    cmd = qemuMonitorJSONMakeCommand("__com.redhat_spice_migrate_info",
+                                     "s:hostname", hostname,
+                                     "i:port", port,
+                                     "i:tls-port", tlsPort,
+                                     (tlsSubject ? "s:cert-subject" : NULL),
+                                     (tlsSubject ? tlsSubject : NULL),
+                                     NULL);
+
     if (ret == 0)
         ret = qemuMonitorJSONCheckError(cmd, reply);
+
+cleanup:
 
     virJSONValueFree(cmd);
     virJSONValueFree(reply);

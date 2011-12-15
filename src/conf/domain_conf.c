@@ -187,6 +187,12 @@ VIR_ENUM_IMPL(virDomainVirtioEventIdx, VIR_DOMAIN_VIRTIO_EVENT_IDX_LAST,
               "on",
               "off")
 
+VIR_ENUM_IMPL(virDomainDiskSnapshot, VIR_DOMAIN_DISK_SNAPSHOT_LAST,
+              "default",
+              "no",
+              "internal",
+              "external")
+
 VIR_ENUM_IMPL(virDomainController, VIR_DOMAIN_CONTROLLER_TYPE_LAST,
               "ide",
               "fdc",
@@ -2073,6 +2079,7 @@ virDomainDiskDefParseXML(virCapsPtr caps,
     xmlNodePtr cur, host;
     char *type = NULL;
     char *device = NULL;
+    char *snapshot = NULL;
     char *driverName = NULL;
     char *driverType = NULL;
     char *source = NULL;
@@ -2105,6 +2112,8 @@ virDomainDiskDefParseXML(virCapsPtr caps,
     } else {
         def->type = VIR_DOMAIN_DISK_TYPE_FILE;
     }
+
+    snapshot = virXMLPropString(node, "snapshot");
 
     cur = node->children;
     while (cur != NULL) {
@@ -2207,6 +2216,8 @@ virDomainDiskDefParseXML(virCapsPtr caps,
                 def->readonly = 1;
             } else if (xmlStrEqual(cur->name, BAD_CAST "shareable")) {
                 def->shared = 1;
+            } else if (xmlStrEqual(cur->name, BAD_CAST "transient")) {
+                def->transient = 1;
             } else if ((flags & VIR_DOMAIN_XML_INTERNAL_STATUS) &&
                        xmlStrEqual(cur->name, BAD_CAST "state")) {
                 /* Legacy back-compat. Don't add any more attributes here */
@@ -2276,6 +2287,18 @@ virDomainDiskDefParseXML(virCapsPtr caps,
         virDomainReportError(VIR_ERR_INTERNAL_ERROR,
                              _("Invalid harddisk device name: %s"), target);
         goto error;
+    }
+
+    if (snapshot) {
+        def->snapshot = virDomainDiskSnapshotTypeFromString(snapshot);
+        if (def->snapshot <= 0) {
+            virDomainReportError(VIR_ERR_INTERNAL_ERROR,
+                                 _("unknown disk snapshot setting '%s'"),
+                                 snapshot);
+            goto error;
+        }
+    } else if (def->readonly) {
+        def->snapshot = VIR_DOMAIN_DISK_SNAPSHOT_NO;
     }
 
     if (bus) {
@@ -2423,6 +2446,7 @@ virDomainDiskDefParseXML(virCapsPtr caps,
 cleanup:
     VIR_FREE(bus);
     VIR_FREE(type);
+    VIR_FREE(snapshot);
     VIR_FREE(target);
     VIR_FREE(source);
     while (nhosts > 0) {
@@ -2448,7 +2472,7 @@ cleanup:
 no_memory:
     virReportOOMError();
 
- error:
+error:
     virDomainDiskDefFree(def);
     def = NULL;
     goto cleanup;
@@ -8640,8 +8664,13 @@ virDomainDiskDefFormat(virBufferPtr buf,
     }
 
     virBufferAsprintf(buf,
-                      "    <disk type='%s' device='%s'>\n",
+                      "    <disk type='%s' device='%s'",
                       type, device);
+    if (def->snapshot &&
+        !(def->snapshot == VIR_DOMAIN_DISK_SNAPSHOT_NO && def->readonly))
+        virBufferAsprintf(buf, " snapshot='%s'",
+                          virDomainDiskSnapshotTypeToString(def->snapshot));
+    virBufferAddLit(buf, ">\n");
 
     if (def->driverName || def->driverType || def->cachemode ||
         def->ioeventfd || def->event_idx) {
@@ -8715,6 +8744,8 @@ virDomainDiskDefFormat(virBufferPtr buf,
         virBufferAddLit(buf, "      <readonly/>\n");
     if (def->shared)
         virBufferAddLit(buf, "      <shareable/>\n");
+    if (def->transient)
+        virBufferAddLit(buf, "      <transient/>\n");
     if (def->serial)
         virBufferEscapeString(buf, "      <serial>%s</serial>\n",
                               def->serial);

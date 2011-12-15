@@ -622,6 +622,11 @@
       </element>
     </optional>
     <optional>
+      <element name="transient">
+        <empty/>
+      </element>
+    </optional>
+    <optional>
       <element name="serial">
         <ref name="diskSerial"/>
       </element>
@@ -632,6 +637,15 @@
     <optional>
       <ref name="address"/>
     </optional>
+  </define>
+  <define name="snapshot">
+    <attribute name="snapshot">
+      <choice>
+        <value>no</value>
+        <value>internal</value>
+        <value>external</value>
+      </choice>
+    </attribute>
   </define>
 
   <define name="lease">
@@ -671,6 +685,9 @@
             <value>cdrom</value>
           </choice>
         </attribute>
+      </optional>
+      <optional>
+        <ref name="snapshot"/>
       </optional>
       <choice>
         <group>

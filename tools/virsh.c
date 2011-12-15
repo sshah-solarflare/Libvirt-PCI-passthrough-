@@ -182,7 +182,7 @@ typedef struct {
 typedef struct {
     const char *name;           /* the name of option, or NULL for list end */
     vshCmdOptType type;         /* option type */
-    int flag;                   /* flags */
+    unsigned int flags;         /* flags */
     const char *help;           /* non-NULL help string */
 } vshCmdOptDef;
 
@@ -1443,7 +1443,7 @@ cmdUndefine(vshControl *ctl, const vshCmd *cmd)
     virDomainPtr dom;
     bool ret = true;
     const char *name = NULL;
-    int flags = 0;
+    unsigned int flags = 0;
     int managed_save = vshCommandOptBool(cmd, "managed-save");
     int has_managed_save = 0;
     int rc = -1;
@@ -1651,7 +1651,7 @@ cmdSave(vshControl *ctl, const vshCmd *cmd)
     const char *name = NULL;
     const char *to = NULL;
     bool ret = false;
-    int flags = 0;
+    unsigned int flags = 0;
     const char *xmlfile = NULL;
     char *xml = NULL;
 
@@ -1713,7 +1713,7 @@ cmdSaveImageDumpxml(vshControl *ctl, const vshCmd *cmd)
 {
     const char *file = NULL;
     bool ret = false;
-    int flags = 0;
+    unsigned int flags = 0;
     char *xml = NULL;
 
     if (vshCommandOptBool(cmd, "security-info"))
@@ -1810,7 +1810,7 @@ cmdSaveImageEdit(vshControl *ctl, const vshCmd *cmd)
     char *tmp = NULL;
     char *doc = NULL;
     char *doc_edited = NULL;
-    int flags = VIR_DOMAIN_XML_SECURE;
+    unsigned int flags = VIR_DOMAIN_XML_SECURE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return false;
@@ -1888,7 +1888,7 @@ cmdManagedSave(vshControl *ctl, const vshCmd *cmd)
     virDomainPtr dom;
     const char *name;
     bool ret = false;
-    int flags = 0;
+    unsigned int flags = 0;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return false;
@@ -2246,7 +2246,7 @@ cmdRestore(vshControl *ctl, const vshCmd *cmd)
 {
     const char *from = NULL;
     bool ret = false;
-    int flags = 0;
+    unsigned int flags = 0;
     const char *xmlfile = NULL;
     char *xml = NULL;
 
@@ -2309,7 +2309,7 @@ cmdDump(vshControl *ctl, const vshCmd *cmd)
     const char *name = NULL;
     const char *to = NULL;
     bool ret = false;
-    int flags = 0;
+    unsigned int flags = 0;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return false;
@@ -3412,7 +3412,7 @@ cmdVcpuPin(vshControl *ctl, const vshCmd *cmd)
     int live = vshCommandOptBool(cmd, "live");
     int current = vshCommandOptBool(cmd, "current");
     bool query = false; /* Query mode if no cpulist */
-    int flags = 0;
+    unsigned int flags = 0;
 
     if (current) {
         if (live || config) {
@@ -3645,7 +3645,7 @@ cmdSetvcpus(vshControl *ctl, const vshCmd *cmd)
     int config = vshCommandOptBool(cmd, "config");
     int live = vshCommandOptBool(cmd, "live");
     int current = vshCommandOptBool(cmd, "current");
-    int flags = 0;
+    unsigned int flags = 0;
 
     if (current) {
         if (live || config) {
@@ -3859,7 +3859,7 @@ cmdSetmem(vshControl *ctl, const vshCmd *cmd)
     int config = vshCommandOptBool(cmd, "config");
     int live = vshCommandOptBool(cmd, "live");
     int current = vshCommandOptBool(cmd, "current");
-    int flags = 0;
+    unsigned int flags = 0;
 
     if (current) {
         if (live || config) {
@@ -3948,7 +3948,7 @@ cmdSetmaxmem(vshControl *ctl, const vshCmd *cmd)
     int config = vshCommandOptBool(cmd, "config");
     int live = vshCommandOptBool(cmd, "live");
     int current = vshCommandOptBool(cmd, "current");
-    int flags = VIR_DOMAIN_MEM_MAXIMUM;
+    unsigned int flags = VIR_DOMAIN_MEM_MAXIMUM;
 
     if (current) {
         if (live || config) {
@@ -4612,7 +4612,7 @@ cmdDumpXML(vshControl *ctl, const vshCmd *cmd)
     virDomainPtr dom;
     bool ret = true;
     char *dump;
-    int flags = 0;
+    unsigned int flags = 0;
     int inactive = vshCommandOptBool(cmd, "inactive");
     int secure = vshCommandOptBool(cmd, "security-info");
     int update = vshCommandOptBool(cmd, "update-cpu");
@@ -4665,7 +4665,7 @@ cmdDomXMLFromNative(vshControl *ctl, const vshCmd *cmd)
     const char *configFile = NULL;
     char *configData;
     char *xmlData;
-    int flags = 0;
+    unsigned int flags = 0;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return false;
@@ -4711,7 +4711,7 @@ cmdDomXMLToNative(vshControl *ctl, const vshCmd *cmd)
     const char *xmlFile = NULL;
     char *configData;
     char *xmlData;
-    int flags = 0;
+    unsigned int flags = 0;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         return false;
@@ -4879,7 +4879,7 @@ doMigrate (void *opaque)
     const char *desturi = NULL;
     const char *migrateuri = NULL;
     const char *dname = NULL;
-    int flags = 0;
+    unsigned int flags = 0;
     vshCtrlData *data = opaque;
     vshControl *ctl = data->ctl;
     const vshCmd *cmd = data->cmd;
@@ -5649,7 +5649,7 @@ cmdInterfaceEdit (vshControl *ctl, const vshCmd *cmd)
     char *doc = NULL;
     char *doc_edited = NULL;
     char *doc_reread = NULL;
-    int flags = VIR_INTERFACE_XML_INACTIVE;
+    unsigned int flags = VIR_INTERFACE_XML_INACTIVE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         goto cleanup;
@@ -6190,7 +6190,7 @@ cmdInterfaceDumpXML(vshControl *ctl, const vshCmd *cmd)
     virInterfacePtr iface;
     bool ret = true;
     char *dump;
-    int flags = 0;
+    unsigned int flags = 0;
     int inactive = vshCommandOptBool(cmd, "inactive");
 
     if (inactive)
@@ -11692,7 +11692,7 @@ cmdEdit (vshControl *ctl, const vshCmd *cmd)
     char *doc = NULL;
     char *doc_edited = NULL;
     char *doc_reread = NULL;
-    int flags = VIR_DOMAIN_XML_SECURE | VIR_DOMAIN_XML_INACTIVE;
+    unsigned int flags = VIR_DOMAIN_XML_SECURE | VIR_DOMAIN_XML_INACTIVE;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         goto cleanup;
@@ -12884,18 +12884,18 @@ vshCmddefOptParse(const vshCmdDef *cmd, uint32_t *opts_need_arg,
         if (i > 31)
             return -1; /* too many options */
         if (opt->type == VSH_OT_BOOL) {
-            if (opt->flag & VSH_OFLAG_REQ)
+            if (opt->flags & VSH_OFLAG_REQ)
                 return -1; /* bool options can't be mandatory */
             continue;
         }
-        if (opt->flag & VSH_OFLAG_REQ_OPT) {
-            if (opt->flag & VSH_OFLAG_REQ)
+        if (opt->flags & VSH_OFLAG_REQ_OPT) {
+            if (opt->flags & VSH_OFLAG_REQ)
                 *opts_required |= 1 << i;
             continue;
         }
 
         *opts_need_arg |= 1 << i;
-        if (opt->flag & VSH_OFLAG_REQ) {
+        if (opt->flags & VSH_OFLAG_REQ) {
             if (optional)
                 return -1; /* mandatory options must be listed first */
             *opts_required |= 1 << i;
@@ -13070,7 +13070,7 @@ vshCmddefHelp(vshControl *ctl, const char *cmdname)
                     break;
                 case VSH_OT_INT:
                     /* xgettext:c-format */
-                    fmt = ((opt->flag & VSH_OFLAG_REQ) ? "<%s>"
+                    fmt = ((opt->flags & VSH_OFLAG_REQ) ? "<%s>"
                            : _("[--%s <number>]"));
                     break;
                 case VSH_OT_STRING:
@@ -13078,11 +13078,11 @@ vshCmddefHelp(vshControl *ctl, const char *cmdname)
                     fmt = _("[--%s <string>]");
                     break;
                 case VSH_OT_DATA:
-                    fmt = ((opt->flag & VSH_OFLAG_REQ) ? "<%s>" : "[<%s>]");
+                    fmt = ((opt->flags & VSH_OFLAG_REQ) ? "<%s>" : "[<%s>]");
                     break;
                 case VSH_OT_ARGV:
                     /* xgettext:c-format */
-                    fmt = (opt->flag & VSH_OFLAG_REQ) ? _("<%s>...")
+                    fmt = (opt->flags & VSH_OFLAG_REQ) ? _("<%s>...")
                            : _("[<%s>]...");
                     break;
                 default:
@@ -13110,7 +13110,7 @@ vshCmddefHelp(vshControl *ctl, const char *cmdname)
                     break;
                 case VSH_OT_INT:
                     snprintf(buf, sizeof(buf),
-                             (opt->flag & VSH_OFLAG_REQ) ? _("[--%s] <number>")
+                             (opt->flags & VSH_OFLAG_REQ) ? _("[--%s] <number>")
                              : _("--%s <number>"), opt->name);
                     break;
                 case VSH_OT_STRING:
@@ -13205,7 +13205,7 @@ vshCommandOpt(const vshCmd *cmd, const char *name, vshCmdOpt **opt)
         if (!valid->name)
             break;
         if (STREQ(name, valid->name))
-            return (valid->flag & VSH_OFLAG_REQ) == 0 ? 0 : -1;
+            return (valid->flags & VSH_OFLAG_REQ) == 0 ? 0 : -1;
         valid++;
     }
     /* If we got here, the name is unknown.  */
@@ -13346,7 +13346,7 @@ vshCommandOptString(const vshCmd *cmd, const char *name, const char **value)
         return -2;
     }
 
-    if (!*arg->data && !(arg->def->flag & VSH_OFLAG_EMPTY_OK)) {
+    if (!*arg->data && !(arg->def->flags & VSH_OFLAG_EMPTY_OK)) {
         return -1;
     }
     *value = arg->data;

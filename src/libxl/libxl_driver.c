@@ -2930,7 +2930,7 @@ libxlDomainAttachDeviceDiskLive(libxlDomainObjPrivatePtr priv,
             break;
         case VIR_DOMAIN_DISK_DEVICE_DISK:
             if (l_disk->bus == VIR_DOMAIN_DISK_BUS_XEN) {
-                if (virDomainDiskIndexByName(vm->def, l_disk->dst) >= 0) {
+                if (virDomainDiskIndexByName(vm->def, l_disk->dst, true) >= 0) {
                     libxlError(VIR_ERR_OPERATION_FAILED,
                             _("target %s already exists"), l_disk->dst);
                     goto cleanup;
@@ -2992,7 +2992,8 @@ libxlDomainDetachDeviceDiskLive(libxlDomainObjPrivatePtr priv,
             if (dev->data.disk->bus == VIR_DOMAIN_DISK_BUS_XEN) {
 
                 if ((i = virDomainDiskIndexByName(vm->def,
-                                                  dev->data.disk->dst)) < 0) {
+                                                  dev->data.disk->dst,
+                                                  false)) < 0) {
                     libxlError(VIR_ERR_OPERATION_FAILED,
                                _("disk %s not found"), dev->data.disk->dst);
                     goto cleanup;
@@ -3062,7 +3063,7 @@ libxlDomainAttachDeviceConfig(virDomainDefPtr vmdef, virDomainDeviceDefPtr dev)
     switch (dev->type) {
         case VIR_DOMAIN_DEVICE_DISK:
             disk = dev->data.disk;
-            if (virDomainDiskIndexByName(vmdef, disk->dst) >= 0) {
+            if (virDomainDiskIndexByName(vmdef, disk->dst, true) >= 0) {
                 libxlError(VIR_ERR_INVALID_ARG,
                         _("target %s already exists."), disk->dst);
                 return -1;
@@ -3173,9 +3174,9 @@ libxlDomainUpdateDeviceConfig(virDomainDefPtr vmdef, virDomainDeviceDefPtr dev)
     switch (dev->type) {
         case VIR_DOMAIN_DEVICE_DISK:
             disk = dev->data.disk;
-            if ((i = virDomainDiskIndexByName(vmdef, disk->dst)) < 0) {
+            if ((i = virDomainDiskIndexByName(vmdef, disk->dst, false)) < 0) {
                 libxlError(VIR_ERR_INVALID_ARG,
-                           _("target %s doesn't exists."), disk->dst);
+                           _("target %s doesn't exist."), disk->dst);
                 goto cleanup;
             }
             orig = vmdef->disks[i];

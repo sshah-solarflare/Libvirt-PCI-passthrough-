@@ -54,6 +54,7 @@
 #include "memory.h"
 #include "util.h"
 #include "virfile.h"
+#include "virpidfile.h"
 
 #define VIR_FROM_THIS VIR_FROM_LXC
 
@@ -947,7 +948,7 @@ int main(int argc, char *argv[])
             goto cleanup;
 
         if (pid > 0) {
-            if ((rc = virFileWritePid(LXC_STATE_DIR, name, pid)) < 0) {
+            if ((rc = virPidFileWrite(LXC_STATE_DIR, name, pid)) < 0) {
                 virReportSystemError(-rc,
                                      _("Unable to write pid file '%s/%s.pid'"),
                                      LXC_STATE_DIR, name);
@@ -990,7 +991,7 @@ int main(int argc, char *argv[])
 
 cleanup:
     if (def)
-        virFileDeletePid(LXC_STATE_DIR, def->name);
+        virPidFileDelete(LXC_STATE_DIR, def->name);
     lxcControllerCleanupInterfaces(nveths, veths);
     if (sockpath)
         unlink(sockpath);

@@ -1228,6 +1228,78 @@ ifaceSysfsDeviceFile(char **pf_sysfs_device_link, const char *ifname,
     return 0;
 }
 
+/*
+ * ifaceGetVirtualFunctions:
+ *
+ * @pfname : name of the physical function interface name
+ * @vfname: array that will hold the interface names of the virtual_functions
+ * @n_vfname: pointer to the number of virtual functions
+ *
+ * Returns 0 on success and -1 on failure
+ */
+
+int
+ifaceGetVirtualFunctions(const char *pfname, 
+                         char ***vfname,
+                         unsigned int *n_vfname)
+{                            
+    int ret = -1, i;
+    char *pf_sysfs_device_link = NULL;
+    char *pci_sysfs_device_link = NULL;
+    struct pci_config_address **virt_fns;
+    char *pciConfigAddr;
+    
+    if (ifaceSysfsFile(&pf_sysfs_device_link, pfname, "device") < 0)
+        return ret;
+    
+    if (pciGetVirtualFunctions(pf_sysfs_device_link, &virt_fns,
+                               n_vfname) < 0) {
+        virReportSystemError(ENOSYS, "%s",
+                             _("Failed to get virtual functions"));
+        goto out;
+    }
+    
+    if (VIR_ALLOC_N(*vfname, *n_vfname) < 0) {
+        virReportOOMError();
+        goto out;
+    }
+    
+    for (i = 0; i < *n_vfname; i++)
+    {
+        if (pciGetDeviceAddrString(virt_fns[i]->domain, 
+                                   virt_fns[i]->bus, 
+                                   virt_fns[i]->slot, 
+                                   virt_fns[i]->function,
+                                   &pciConfigAddr) < 0) {
+            virReportSystemError(ENOSYS, "%s",
+                                 _("Failed to get PCI Config Address String"));
+            goto out;
+        }
+        if (pciSysfsFile(pciConfigAddr, &pci_sysfs_device_link) < 0) {
+            virReportSystemError(ENOSYS, "%s",
+                                 _("Failed to get PCI SYSFS file"));
+            goto out;
+        } 
+        
+        if (pciDeviceNetName(pci_sysfs_device_link, &((*vfname)[i])) < 0) {
+            virReportSystemError(ENOSYS, "%s",
+                                 _("Failed to get interface name of the VF"));
+            goto out;
+        }
+    }  
+    
+    ret = 0;
+    
+out:
+    for (i = 0; i < *n_vfname; i++)
+        VIR_FREE(virt_fns[i]);
+    VIR_FREE(virt_fns);    
+    VIR_FREE(pf_sysfs_device_link);
+    VIR_FREE(pci_sysfs_device_link);
+    VIR_FREE(pciConfigAddr);
+    return ret;
+}
+
 /**
  * ifaceIsVirtualFunction
  *
@@ -1316,6 +1388,16 @@ ifaceGetPhysicalFunction(const char *ifname, char **pfname)
     return ret;
 }
 #else
+int
+ifaceGetVirtualFunctions(const char *pfname ATTRIBUTE_UNUSED, 
+                         char ***vfname ATTRIBUTE_UNUSED,
+                         unsigned int *n_vfname ATTRIBUTE_UNUSED)
+{
+    virReportSystemError(ENOSYS, "%s",
+                         _("Unable to get virtual functions on this platfornm"));
+    return -1;
+}
+
 int
 ifaceIsVirtualFunction(const char *ifname)
 {

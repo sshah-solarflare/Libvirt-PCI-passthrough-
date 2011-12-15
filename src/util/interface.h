@@ -88,4 +88,8 @@ int ifaceGetVirtualFunctionIndex(const char *pfname, const char *vfname,
 
 int ifaceGetPhysicalFunction(const char *ifname, char **pfname);
 
+int ifaceGetVirtualFunctions(const char *pfname, 
+                             char ***vfname,
+                             unsigned int *n_vfname);
+
 #endif /* __VIR_INTERFACE_H__ */

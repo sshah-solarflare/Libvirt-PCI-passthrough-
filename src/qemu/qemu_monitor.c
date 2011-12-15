@@ -1283,6 +1283,39 @@ static const char* qemuMonitorTypeToProtocol(int type)
 }
 
 /* Returns -2 if not supported with this monitor connection */
+int qemuMonitorSetPasswordRH(qemuMonitorPtr mon,
+                             int type,
+                             const char *password,
+                             const char *action_if_connected,
+                             int expiry)
+{
+    const char *protocol = qemuMonitorTypeToProtocol(type);
+    int ret;
+
+    VIR_DEBUG("mon=%p, fd=%d type=%d(%s), password=%p, "
+              "action_if_connected=%s expiry=%d",
+              mon, mon->fd, type, protocol, password,
+              action_if_connected, expiry);
+
+    if (!protocol)
+        return -1;
+
+    if (!password)
+        password = "";
+
+    if (!action_if_connected)
+        action_if_connected = "keep";
+
+    if (mon->json)
+        ret = qemuMonitorJSONSetPasswordRH(mon, protocol, password,
+                                           action_if_connected, expiry);
+    else {
+        ret = -2;
+    }
+    return ret;
+}
+
+/* Returns -2 if not supported with this monitor connection */
 int qemuMonitorSetPassword(qemuMonitorPtr mon,
                            int type,
                            const char *password,

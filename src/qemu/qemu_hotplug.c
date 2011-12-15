@@ -1913,6 +1913,7 @@ qemuDomainChangeGraphicsPasswords(struct qemud_driver *driver,
     time_t now = time(NULL);
     char expire_time [64];
     const char *connected = NULL;
+    time_t lifetime;
     int ret;
 
     if (!auth->passwd && !driver->vncPassword)
@@ -1922,6 +1923,31 @@ qemuDomainChangeGraphicsPasswords(struct qemud_driver *driver,
         connected = virDomainGraphicsAuthConnectedTypeToString(auth->connected);
 
     qemuDomainObjEnterMonitorWithDriver(driver, vm);
+
+    /* try rhel-only command first */
+    if (auth->expires) {
+        lifetime = auth->validTo - now;
+        /* QEMU treats '0' as dont expire, so we need to force it to expire
+         * immediately */
+        if (lifetime <= 0)
+            lifetime = -1;
+    } else {
+        lifetime = 0; /* don't expire */
+    }
+
+    ret = qemuMonitorSetPasswordRH(priv->mon,
+                                   type,
+                                   auth->passwd ? auth->passwd : defaultPasswd,
+                                   connected,
+                                   lifetime);
+    if (ret == -2) {
+        VIR_DEBUG("__com.redhat_set_password command not supported,"
+                  " trying the upstream way");
+    } else {
+        /* either success or normal error, so skip the upstream way */
+        goto cleanup;
+    }
+
     ret = qemuMonitorSetPassword(priv->mon,
                                  type,
                                  auth->passwd ? auth->passwd : defaultPasswd,
@@ -1941,7 +1967,7 @@ qemuDomainChangeGraphicsPasswords(struct qemud_driver *driver,
         goto cleanup;
 
     if (auth->expires) {
-        time_t lifetime = auth->validTo - now;
+        lifetime = auth->validTo - now;
         if (lifetime <= 0)
             snprintf(expire_time, sizeof (expire_time), "now");
         else

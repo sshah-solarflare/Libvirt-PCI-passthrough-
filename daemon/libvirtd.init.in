@@ -42,6 +42,7 @@ PIDFILE=@localstatedir@/run/$SERVICE.pid
 LIBVIRTD_CONFIG=
 LIBVIRTD_ARGS=
 KRB5_KTNAME=/etc/libvirt/krb5.tab
+INITCTL_PATH=/sbin/initctl
 
 test -f @sysconfdir@/sysconfig/libvirtd && . @sysconfdir@/sysconfig/libvirtd
 
@@ -56,8 +57,22 @@ fi
 
 RETVAL=0
 
+# Check if libvirt is managed by upstart and fail if it's the case
+initctl_check() {
+    if [ -x "$INITCTL_PATH" ]; then
+        #extract status from upstart
+        LIBVIRTD_UPSTART_STATUS=$($INITCTL_PATH status $SERVICE  2>/dev/null | cut -d/ -f 1)
+        if [ "$LIBVIRTD_UPSTART_STATUS" = "$SERVICE start" ]; then
+            logger -t "libvirtd" -s  "libvirtd is managed by upstart and started, use initctl instead"
+            exit 14
+        fi
+    fi
+}
+
 start() {
     echo -n $"Starting $SERVICE daemon: "
+    initctl_check
+
     mkdir -p @localstatedir@/cache/libvirt
     rm -rf @localstatedir@/cache/libvirt/*
     KRB5_KTNAME=$KRB5_KTNAME daemon --pidfile $PIDFILE --check $SERVICE $PROCESS --daemon $LIBVIRTD_CONFIG_ARGS $LIBVIRTD_ARGS
@@ -68,6 +83,7 @@ start() {
 
 stop() {
     echo -n $"Stopping $SERVICE daemon: "
+    initctl_check
 
     killproc -p $PIDFILE $PROCESS
     RETVAL=$?
@@ -87,6 +103,7 @@ restart() {
 
 reload() {
     echo -n $"Reloading $SERVICE configuration: "
+    initctl_check
 
     killproc -p $PIDFILE $PROCESS -HUP
     RETVAL=$?

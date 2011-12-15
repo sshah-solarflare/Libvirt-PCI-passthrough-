@@ -1139,7 +1139,6 @@ struct _virDomainClockDef {
 
 # define VIR_DOMAIN_CPUMASK_LEN 1024
 
-
 typedef struct _virDomainVcpuPinDef virDomainVcpuPinDef;
 typedef virDomainVcpuPinDef *virDomainVcpuPinDefPtr;
 struct _virDomainVcpuPinDef {
@@ -1313,6 +1312,9 @@ typedef struct _virDomainSnapshotObj virDomainSnapshotObj;
 typedef virDomainSnapshotObj *virDomainSnapshotObjPtr;
 struct _virDomainSnapshotObj {
     virDomainSnapshotDefPtr def;
+
+    /* Internal use only */
+    int mark; /* Used in identifying descendents. */
 };
 
 typedef struct _virDomainSnapshotObjList virDomainSnapshotObjList;
@@ -1342,6 +1344,10 @@ void virDomainSnapshotObjListRemove(virDomainSnapshotObjListPtr snapshots,
                                     virDomainSnapshotObjPtr snapshot);
 int virDomainSnapshotHasChildren(virDomainSnapshotObjPtr snap,
                                 virDomainSnapshotObjListPtr snapshots);
+int virDomainSnapshotForEachDescendant(virDomainSnapshotObjListPtr snapshots,
+                                       virDomainSnapshotObjPtr snapshot,
+                                       virHashIterator iter,
+                                       void *data);
 
 /* Guest VM runtime state */
 typedef struct _virDomainStateReason virDomainStateReason;

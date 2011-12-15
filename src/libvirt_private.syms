@@ -384,6 +384,7 @@ virDomainSnapshotDefFormat;
 virDomainSnapshotDefFree;
 virDomainSnapshotDefParseString;
 virDomainSnapshotFindByName;
+virDomainSnapshotForEachDescendant;
 virDomainSnapshotHasChildren;
 virDomainSnapshotObjListGetNames;
 virDomainSnapshotObjListNum;

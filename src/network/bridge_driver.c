@@ -2882,14 +2882,17 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
         /* If there is only a single device, just return it (caller will detect
          * any error if exclusive use is required but could not be acquired).
          */
-        if (netdef->nForwardIfs == 0) {
+        if ((netdef->nForwardIfs <= 0) && (netdef->nForwardPfs <= 0)) { 
             networkReportError(VIR_ERR_INTERNAL_ERROR,
                                _("network '%s' uses a direct mode, but has no forward dev and no interface pool"),
                                netdef->name);
             goto cleanup;
-        } else {
+        } 
+        else {
             int ii;
             virNetworkForwardIfDefPtr dev = NULL;
+            unsigned int num_virt_fns = 0;
+            char **vfname = NULL;
 
             /* pick an interface from the pool */
 
@@ -2898,11 +2901,57 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
              * 0.  Other modes can share, so just search for the one with
              * the lowest usageCount.
              */
-            if ((netdef->forwardType == VIR_NETWORK_FORWARD_PASSTHROUGH) ||
-                ((netdef->forwardType == VIR_NETWORK_FORWARD_PRIVATE) &&
-                 iface->data.network.actual->data.direct.virtPortProfile &&
-                 (iface->data.network.actual->data.direct.virtPortProfile->virtPortType
-                  == VIR_VIRTUALPORT_8021QBH))) {
+            if (netdef->forwardType == VIR_NETWORK_FORWARD_PASSTHROUGH) {
+                if ((netdef->nForwardPfs > 0) && (netdef->nForwardIfs <= 0)) {
+                    if ((ifaceGetVirtualFunctions(netdef->forwardPfs->dev, 
+                                                  &vfname, &num_virt_fns)) < 0){
+                        networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                           _("Could not get Virtual functions on %s"),
+                                           netdef->forwardPfs->dev);
+                        goto out;
+                    }
+                    
+                    if (num_virt_fns == 0) {
+                        networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                           _("No Vf's present on SRIOV PF %s"),
+                                           netdef->forwardPfs->dev);
+                        goto out;
+                    }
+                    
+                    if ((VIR_ALLOC_N(netdef->forwardIfs, num_virt_fns)) < 0) {
+                        virReportOOMError();
+                        goto out;
+                    }
+                    
+                    netdef->nForwardIfs = num_virt_fns;
+                    
+                    for (ii = 0; ii < netdef->nForwardIfs; ii++) {
+                        netdef->forwardIfs[ii].dev = strdup(vfname[ii]);
+                        netdef->forwardIfs[ii].usageCount = 0;
+                    }
+                    
+                out:
+                    for (ii = 0; ii < num_virt_fns; ii++) {
+                        VIR_FREE(vfname[ii]);
+                    }
+                    VIR_FREE(vfname);
+                }
+                
+                /* pick first dev with 0 usageCount */
+                
+                
+                for (ii = 0; ii < netdef->nForwardIfs; ii++) {
+                    if (netdef->forwardIfs[ii].usageCount == 0) {
+                        dev = &netdef->forwardIfs[ii];
+                        break;
+                    }
+                }
+            }
+            
+            else if ((netdef->forwardType == VIR_NETWORK_FORWARD_PRIVATE) &&
+                     iface->data.network.actual->data.direct.virtPortProfile &&
+                     (iface->data.network.actual->data.direct.virtPortProfile->virtPortType
+                      == VIR_VIRTUALPORT_8021QBH)) {
                 /* pick first dev with 0 usageCount */
 
                 for (ii = 0; ii < netdef->nForwardIfs; ii++) {
@@ -2911,7 +2960,9 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
                         break;
                     }
                 }
-            } else {
+            } 
+            
+            else {
                 /* pick least used dev */
                 dev = &netdef->forwardIfs[0];
                 for (ii = 1; ii < netdef->nForwardIfs; ii++) {
@@ -2923,7 +2974,7 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
             if (!dev) {
                 networkReportError(VIR_ERR_INTERNAL_ERROR,
                                    _("network '%s' requires exclusive access to interfaces, but none are available"),
-                               netdef->name);
+                                   netdef->name);
                 goto cleanup;
             }
             iface->data.network.actual->data.direct.linkdev = strdup(dev->dev);

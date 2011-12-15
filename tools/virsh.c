@@ -12116,6 +12116,7 @@ static const vshCmdOptDef opts_snapshot_create[] = {
     {"current", VSH_OT_BOOL, 0, N_("with redefine, set current snapshot")},
     {"no-metadata", VSH_OT_BOOL, 0, N_("take snapshot but create no metadata")},
     {"halt", VSH_OT_BOOL, 0, N_("halt domain after snapshot is created")},
+    {"disk-only", VSH_OT_BOOL, 0, N_("capture disk state but not vm state")},
     {NULL, 0, 0, NULL}
 };
 
@@ -12136,6 +12137,8 @@ cmdSnapshotCreate(vshControl *ctl, const vshCmd *cmd)
         flags |= VIR_DOMAIN_SNAPSHOT_CREATE_NO_METADATA;
     if (vshCommandOptBool(cmd, "halt"))
         flags |= VIR_DOMAIN_SNAPSHOT_CREATE_HALT;
+    if (vshCommandOptBool(cmd, "disk-only"))
+        flags |= VIR_DOMAIN_SNAPSHOT_CREATE_DISK_ONLY;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         goto cleanup;
@@ -12174,6 +12177,62 @@ cleanup:
 /*
  * "snapshot-create-as" command
  */
+static int
+vshParseSnapshotDiskspec(vshControl *ctl, virBufferPtr buf, const char *str)
+{
+    int ret = -1;
+    char *name = NULL;
+    char *snapshot = NULL;
+    char *driver = NULL;
+    char *file = NULL;
+    char *spec = vshStrdup(ctl, str);
+    char *tmp = spec;
+    size_t len = strlen(str);
+
+    if (*str == ',')
+        goto cleanup;
+    name = tmp;
+    while ((tmp = strchr(tmp, ','))) {
+        if (tmp[1] == ',') {
+            /* Recognize ,, as an escape for a literal comma */
+            memmove(&tmp[1], &tmp[2], len - (tmp - spec) + 2);
+            len--;
+            tmp++;
+            continue;
+        }
+        /* Terminate previous string, look for next recognized one */
+        *tmp++ = '\0';
+        if (!snapshot && STRPREFIX(tmp, "snapshot="))
+            snapshot = tmp + strlen("snapshot=");
+        else if (!driver && STRPREFIX(tmp, "driver="))
+            driver = tmp + strlen("driver=");
+        else if (!file && STRPREFIX(tmp, "file="))
+            file = tmp + strlen("file=");
+        else
+            goto cleanup;
+    }
+
+    virBufferEscapeString(buf, "    <disk name='%s'", name);
+    if (snapshot)
+        virBufferAsprintf(buf, " snapshot='%s'", snapshot);
+    if (driver || file) {
+        virBufferAddLit(buf, ">\n");
+        if (driver)
+            virBufferAsprintf(buf, "      <driver type='%s'/>\n", driver);
+        if (file)
+            virBufferEscapeString(buf, "      <source file='%s'/>\n", file);
+        virBufferAddLit(buf, "    </disk>\n");
+    } else {
+        virBufferAddLit(buf, "/>\n");
+    }
+    ret = 0;
+cleanup:
+    if (ret < 0)
+        vshError(ctl, _("unable to parse diskspec: %s"), str);
+    VIR_FREE(spec);
+    return ret;
+}
+
 static const vshCmdInfo info_snapshot_create_as[] = {
     {"help", N_("Create a snapshot from a set of args")},
     {"desc", N_("Create a snapshot (disk and RAM) from arguments")},
@@ -12187,6 +12246,9 @@ static const vshCmdOptDef opts_snapshot_create_as[] = {
     {"print-xml", VSH_OT_BOOL, 0, N_("print XML document rather than create")},
     {"no-metadata", VSH_OT_BOOL, 0, N_("take snapshot but create no metadata")},
     {"halt", VSH_OT_BOOL, 0, N_("halt domain after snapshot is created")},
+    {"disk-only", VSH_OT_BOOL, 0, N_("capture disk state but not vm state")},
+    {"diskspec", VSH_OT_ARGV, 0,
+     N_("disk attributes: disk[,snapshot=type][,driver=type][,file=name]")},
     {NULL, 0, 0, NULL}
 };
 
@@ -12200,11 +12262,14 @@ cmdSnapshotCreateAs(vshControl *ctl, const vshCmd *cmd)
     const char *desc = NULL;
     virBuffer buf = VIR_BUFFER_INITIALIZER;
     unsigned int flags = 0;
+    const vshCmdOpt *opt = NULL;
 
     if (vshCommandOptBool(cmd, "no-metadata"))
         flags |= VIR_DOMAIN_SNAPSHOT_CREATE_NO_METADATA;
     if (vshCommandOptBool(cmd, "halt"))
         flags |= VIR_DOMAIN_SNAPSHOT_CREATE_HALT;
+    if (vshCommandOptBool(cmd, "disk-only"))
+        flags |= VIR_DOMAIN_SNAPSHOT_CREATE_DISK_ONLY;
 
     if (!vshConnectionUsability(ctl, ctl->conn))
         goto cleanup;
@@ -12224,6 +12289,16 @@ cmdSnapshotCreateAs(vshControl *ctl, const vshCmd *cmd)
         virBufferEscapeString(&buf, "  <name>%s</name>\n", name);
     if (desc)
         virBufferEscapeString(&buf, "  <description>%s</description>\n", desc);
+    if (vshCommandOptBool(cmd, "diskspec")) {
+        virBufferAddLit(&buf, "  <disks>\n");
+        while ((opt = vshCommandOptArgv(cmd, opt))) {
+            if (vshParseSnapshotDiskspec(ctl, &buf, opt->data) < 0) {
+                virBufferFreeAndReset(&buf);
+                goto cleanup;
+            }
+        }
+        virBufferAddLit(&buf, "  </disks>\n");
+    }
     virBufferAddLit(&buf, "</domainsnapshot>\n");
 
     buffer = virBufferContentAndReset(&buf);
@@ -12233,11 +12308,6 @@ cmdSnapshotCreateAs(vshControl *ctl, const vshCmd *cmd)
     }
 
     if (vshCommandOptBool(cmd, "print-xml")) {
-        if (vshCommandOptBool(cmd, "halt")) {
-            vshError(ctl, "%s",
-                     _("--print-xml and --halt are mutually exclusive"));
-            goto cleanup;
-        }
         vshPrint(ctl, "%s\n",  buffer);
         ret = true;
         goto cleanup;
@@ -13385,12 +13455,8 @@ vshCmddefGetOption(vshControl *ctl, const vshCmdDef *cmd, const char *name,
                 vshError(ctl, _("option --%s already seen"), name);
                 return NULL;
             }
-            if (opt->type == VSH_OT_ARGV) {
-                vshError(ctl, _("variable argument <%s> "
-                         "should not be used with --<%s>"), name, name);
-                return NULL;
-            }
-            *opts_seen |= 1 << i;
+            if (opt->type != VSH_OT_ARGV)
+                *opts_seen |= 1 << i;
             return opt;
         }
     }

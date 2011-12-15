@@ -114,7 +114,7 @@ int qemuDomainChangeEjectableMedia(struct qemud_driver *driver,
     }
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    virDomainAuditDisk(vm, origdisk, disk, "update", ret >= 0);
+    virDomainAuditDisk(vm, origdisk->src, disk->src, "update", ret >= 0);
 
     if (ret < 0)
         goto error;
@@ -224,7 +224,7 @@ int qemuDomainAttachPciDiskDevice(struct qemud_driver *driver,
     }
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    virDomainAuditDisk(vm, NULL, disk, "attach", ret >= 0);
+    virDomainAuditDisk(vm, NULL, disk->src, "attach", ret >= 0);
 
     if (ret < 0)
         goto error;
@@ -468,7 +468,7 @@ int qemuDomainAttachSCSIDisk(struct qemud_driver *driver,
     }
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    virDomainAuditDisk(vm, NULL, disk, "attach", ret >= 0);
+    virDomainAuditDisk(vm, NULL, disk->src, "attach", ret >= 0);
 
     if (ret < 0)
         goto error;
@@ -560,7 +560,7 @@ int qemuDomainAttachUsbMassstorageDevice(struct qemud_driver *driver,
     }
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    virDomainAuditDisk(vm, NULL, disk, "attach", ret >= 0);
+    virDomainAuditDisk(vm, NULL, disk->src, "attach", ret >= 0);
 
     if (ret < 0)
         goto error;
@@ -1277,14 +1277,14 @@ int qemuDomainDetachPciDiskDevice(struct qemud_driver *driver,
     if (qemuCapsGet(priv->qemuCaps, QEMU_CAPS_DEVICE)) {
         if (qemuMonitorDelDevice(priv->mon, detach->info.alias) < 0) {
             qemuDomainObjExitMonitorWithDriver(driver, vm);
-            virDomainAuditDisk(vm, detach, NULL, "detach", false);
+            virDomainAuditDisk(vm, detach->src, NULL, "detach", false);
             goto cleanup;
         }
     } else {
         if (qemuMonitorRemovePCIDevice(priv->mon,
                                        &detach->info.addr.pci) < 0) {
             qemuDomainObjExitMonitorWithDriver(driver, vm);
-            virDomainAuditDisk(vm, detach, NULL, "detach", false);
+            virDomainAuditDisk(vm, detach->src, NULL, "detach", false);
             goto cleanup;
         }
     }
@@ -1294,7 +1294,7 @@ int qemuDomainDetachPciDiskDevice(struct qemud_driver *driver,
 
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    virDomainAuditDisk(vm, detach, NULL, "detach", true);
+    virDomainAuditDisk(vm, detach->src, NULL, "detach", true);
 
     if (qemuCapsGet(priv->qemuCaps, QEMU_CAPS_DEVICE) &&
         qemuDomainPCIAddressReleaseSlot(priv->pciaddrs,
@@ -1372,7 +1372,7 @@ int qemuDomainDetachDiskDevice(struct qemud_driver *driver,
     qemuDomainObjEnterMonitorWithDriver(driver, vm);
     if (qemuMonitorDelDevice(priv->mon, detach->info.alias) < 0) {
         qemuDomainObjExitMonitorWithDriver(driver, vm);
-        virDomainAuditDisk(vm, detach, NULL, "detach", false);
+        virDomainAuditDisk(vm, detach->src, NULL, "detach", false);
         goto cleanup;
     }
 
@@ -1381,7 +1381,7 @@ int qemuDomainDetachDiskDevice(struct qemud_driver *driver,
 
     qemuDomainObjExitMonitorWithDriver(driver, vm);
 
-    virDomainAuditDisk(vm, detach, NULL, "detach", true);
+    virDomainAuditDisk(vm, detach->src, NULL, "detach", true);
 
     virDomainDiskRemove(vm->def, i);
 

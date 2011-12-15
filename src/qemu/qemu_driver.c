@@ -1964,16 +1964,16 @@ static int qemuDomainSendKey(virDomainPtr domain,
     if (!virDomainObjIsActive(vm)) {
         qemuReportError(VIR_ERR_OPERATION_INVALID,
                         "%s", _("domain is not running"));
-        goto cleanup;
+        goto endjob;
     }
 
     qemuDomainObjEnterMonitorWithDriver(driver, vm);
     ret = qemuMonitorSendKey(priv->mon, holdtime, keycodes, nkeycodes);
     qemuDomainObjExitMonitorWithDriver(driver, vm);
-    if (qemuDomainObjEndJob(driver, vm) == 0) {
+
+endjob:
+    if (qemuDomainObjEndJob(driver, vm) == 0)
         vm = NULL;
-        goto cleanup;
-    }
 
 cleanup:
     if (vm)

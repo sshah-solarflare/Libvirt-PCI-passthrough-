@@ -2662,6 +2662,34 @@ int qemuMonitorJSONDriveDel(qemuMonitorPtr mon,
     virJSONValuePtr reply = NULL;
 
     VIR_DEBUG("JSONDriveDel drivestr=%s", drivestr);
+    /* RHEL 6 lacks drive_del, but has __com.redhat_drive_del; try
+     * that first */
+    cmd = qemuMonitorJSONMakeCommand("__com.redhat_drive_del",
+                                     "s:id", drivestr,
+                                     NULL);
+    if (!cmd)
+        return -1;
+
+    if ((ret = qemuMonitorJSONCommand(mon, cmd, &reply)) < 0)
+        goto cleanup;
+
+    if (qemuMonitorJSONHasError(reply, "CommandNotFound")) {
+        virJSONValueFree(cmd);
+        virJSONValueFree(reply);
+
+        VIR_DEBUG("__com.redhat_drive_del command not found,"
+                   " trying upstream way");
+    } else if (qemuMonitorJSONHasError(reply, "DeviceNotFound")) {
+        /* NB: device not found errors mean the drive was
+         * auto-deleted and we ignore the error */
+        ret = 0;
+        goto cleanup;
+    } else {
+        ret = qemuMonitorJSONCheckError(cmd, reply);
+        goto cleanup;
+    }
+
+    /* Upstream approach */
     cmd = qemuMonitorJSONMakeCommand("drive_del",
                                      "s:id", drivestr,
                                      NULL);

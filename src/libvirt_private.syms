@@ -572,6 +572,10 @@ virInterfaceObjLock;
 virInterfaceObjUnlock;
 virInterfaceRemove;
 
+# internal.h
+virDomainSnapshotGetConnect;
+virDomainSnapshotGetDomain;
+virDomainSnapshotGetName;
 
 # iptables.h
 iptablesAddForwardAllowCross;

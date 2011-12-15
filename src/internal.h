@@ -242,4 +242,11 @@
 /* divide value by size, rounding up */
 # define VIR_DIV_UP(value, size) (((value) + (size) - 1) / (size))
 
+/* RHEL-specific - once we rebase to 0.9.5 or newer, these will become
+ * public symbols in libvirt.h.  */
+const char *virDomainSnapshotGetName(virDomainSnapshotPtr snapshot);
+virDomainPtr virDomainSnapshotGetDomain(virDomainSnapshotPtr snapshot);
+virConnectPtr virDomainSnapshotGetConnect(virDomainSnapshotPtr snapshot);
+/* end RHEL-specific */
+
 #endif                          /* __VIR_INTERNAL_H__ */

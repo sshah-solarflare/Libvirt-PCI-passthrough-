@@ -123,7 +123,10 @@ VIR_ENUM_IMPL(qemuCaps, QEMU_CAPS_LAST,
               "pci-multifunction", /* 60 */
               "virtio-blk-pci.ioeventfd",
               "sga",
-              "disable-ksm", /* 63 */
+              "disable-ksm",
+              "virtio-blk-pci.event_idx",
+
+              "virtio-net-pci.event_idx", /* 65 */
     );
 
 struct qemu_feature_flags {
@@ -1219,6 +1222,10 @@ qemuCapsParseDeviceStr(const char *str, virBitmapPtr flags)
         qemuCapsSet(flags, QEMU_CAPS_VIRTIO_IOEVENTFD);
     if (strstr(str, "name \"sga\""))
         qemuCapsSet(flags, QEMU_CAPS_SGA);
+    if (strstr(str, "virtio-blk-pci.event_idx"))
+        qemuCapsSet(flags, QEMU_CAPS_VIRTIO_BLK_EVENT_IDX);
+    if (strstr(str, "virtio-net-pci.event_idx"))
+        qemuCapsSet(flags, QEMU_CAPS_VIRTIO_NET_EVENT_IDX);
 
     return 0;
 }

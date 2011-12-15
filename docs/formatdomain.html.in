@@ -419,7 +419,16 @@
       <dd>The optional <code>memoryBacking</code> element, may have an
         <code>hugepages</code> element set within it. This tells the
         hypervisor that the guest should have its memory allocated using
-        hugepages instead of the normal native page size.</dd>
+        hugepages instead of the normal native page size. The optional
+        <code>nosharepages</code> element tells the hypervisor that
+        share pages (KSM) should be disabled on guest startup</dd>
+      <dt><code>blkiotune</code></dt>
+      <dd> The optional <code>blkiotune</code> element provides the ability
+        to tune Blkio cgroup tunable parameters for the domain. If this is
+        omitted, it defaults to the OS provided defaults.</dd>
+      <dt><code>weight</code></dt>
+      <dd> The optional <code>weight</code> element is the I/O weight of the
+        guest. The value should be in range [100, 1000].</dd>
     </dl>
 
 

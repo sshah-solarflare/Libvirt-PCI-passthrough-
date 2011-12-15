@@ -99,6 +99,8 @@ enum qemuCapsFlags {
     QEMU_CAPS_VIRTIO_IOEVENTFD  = 61, /* IOeventFD feature: virtio-{net|blk}-pci.ioeventfd=on/off */
     QEMU_CAPS_SGA               = 62, /* Serial Graphics Adapter */
 
+    QEMU_CAPS_DISABLE_KSM           , /* Is '-redhat-disable-KSM' available? */
+
     QEMU_CAPS_LAST,                   /* this must always be the last item */
 };
 

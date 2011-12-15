@@ -2976,6 +2976,17 @@ qemuBuildCommandLine(virConnectPtr conn,
                              driver->hugepage_path, NULL);
     }
 
+    if (def->mem.ksm_disabled) {
+        if (!qemuCapsGet(qemuCaps, QEMU_CAPS_DISABLE_KSM)) {
+            qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                            _("'-redhat-disable-KSM' is not supported by '%s'"),
+                            def->emulator);
+            goto error;
+        }
+
+        virCommandAddArg(cmd, "-redhat-disable-KSM");
+    }
+
     virCommandAddArg(cmd, "-smp");
     if (!(smp = qemuBuildSmpArgStr(def, qemuCaps)))
         goto error;

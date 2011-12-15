@@ -123,6 +123,7 @@ VIR_ENUM_IMPL(qemuCaps, QEMU_CAPS_LAST,
               "pci-multifunction", /* 60 */
               "virtio-blk-pci.ioeventfd",
               "sga",
+              "disable-ksm", /* 63 */
     );
 
 struct qemu_feature_flags {
@@ -981,6 +982,9 @@ qemuCapsComputeCmdFlags(const char *help,
         strstr(help, "threads=") &&
         strstr(help, "sockets="))
         qemuCapsSet(flags, QEMU_CAPS_SMP_TOPOLOGY);
+
+    if (strstr(help, "-redhat-disable-KSM"))
+        qemuCapsSet(flags, QEMU_CAPS_DISABLE_KSM);
 
     if (version >= 9000)
         qemuCapsSet(flags, QEMU_CAPS_VNC_COLON);

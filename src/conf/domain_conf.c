@@ -6034,6 +6034,10 @@ static virDomainDefPtr virDomainDefParseXML(virCapsPtr caps,
     if (node)
         def->mem.hugepage_backed = 1;
 
+    node = virXPathNode("./memoryBacking/nosharepages", ctxt);
+    if (node)
+        def->mem.ksm_disabled = 1;
+
     /* Extract blkio cgroup tunables */
     if (virXPathUInt("string(./blkiotune/weight)", ctxt,
                      &def->blkio.weight) < 0)
@@ -9941,11 +9945,17 @@ virDomainDefFormatInternal(virDomainDefPtr def,
         def->mem.swap_hard_limit)
         virBufferAsprintf(&buf, "  </memtune>\n");
 
-    if (def->mem.hugepage_backed) {
+    if (def->mem.hugepage_backed || def->mem.ksm_disabled)
         virBufferAddLit(&buf, "  <memoryBacking>\n");
+
+    if (def->mem.hugepage_backed)
         virBufferAddLit(&buf, "    <hugepages/>\n");
+
+    if (def->mem.ksm_disabled)
+        virBufferAddLit(&buf, "    <nosharepages/>\n");
+
+    if (def->mem.hugepage_backed || def->mem.ksm_disabled)
         virBufferAddLit(&buf, "  </memoryBacking>\n");
-    }
 
     for (n = 0 ; n < def->cpumasklen ; n++)
         if (def->cpumask[n] != 1)

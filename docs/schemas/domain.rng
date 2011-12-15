@@ -320,6 +320,11 @@
               <empty/>
             </element>
           </optional>
+          <optional>
+            <element name="nosharepages">
+              <empty/>
+            </element>
+          </optional>
         </element>
       </optional>
 

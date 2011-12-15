@@ -2753,7 +2753,8 @@ virDomainActualNetDefParseXML(xmlNodePtr node,
         goto error;
     }
     if (actual->type != VIR_DOMAIN_NET_TYPE_BRIDGE &&
-        actual->type != VIR_DOMAIN_NET_TYPE_DIRECT) {
+        actual->type != VIR_DOMAIN_NET_TYPE_DIRECT &&
+        actual->type != VIR_DOMAIN_NET_TYPE_NETWORK) {
         virDomainReportError(VIR_ERR_INTERNAL_ERROR,
                              _("unsupported type '%s' in interface's <actual> element"),
                              type);
@@ -9003,7 +9004,8 @@ virDomainActualNetDefFormat(virBufferPtr buf,
     }
 
     if (def->type != VIR_DOMAIN_NET_TYPE_BRIDGE &&
-        def->type != VIR_DOMAIN_NET_TYPE_DIRECT) {
+        def->type != VIR_DOMAIN_NET_TYPE_DIRECT &&
+        def->type != VIR_DOMAIN_NET_TYPE_NETWORK) {
         virDomainReportError(VIR_ERR_INTERNAL_ERROR,
                              _("unexpected net type %s"), type);
         goto error;

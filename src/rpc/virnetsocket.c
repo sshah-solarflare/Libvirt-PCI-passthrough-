@@ -614,6 +614,7 @@ int virNetSocketNewConnectSSH(const char *nodename,
 
     cmd = virCommandNew(binary ? binary : "ssh");
     virCommandAddEnvPassCommon(cmd);
+    virCommandAddEnvPass(cmd, "KRB5CCNAME");
     virCommandAddEnvPass(cmd, "SSH_AUTH_SOCK");
     virCommandAddEnvPass(cmd, "SSH_ASKPASS");
     virCommandAddEnvPass(cmd, "DISPLAY");

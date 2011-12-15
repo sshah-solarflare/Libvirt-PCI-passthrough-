@@ -133,6 +133,8 @@ struct daemonConfig {
     int max_workers;
     int max_clients;
 
+    int prio_workers;
+
     int max_requests;
     int max_client_requests;
 
@@ -923,6 +925,8 @@ daemonConfigNew(bool privileged ATTRIBUTE_UNUSED)
     data->max_workers = 20;
     data->max_clients = 20;
 
+    data->prio_workers = 5;
+
     data->max_requests = 20;
     data->max_client_requests = 5;
 
@@ -1078,6 +1082,8 @@ daemonConfigLoad(struct daemonConfig *data,
     GET_CONF_INT (conf, filename, min_workers);
     GET_CONF_INT (conf, filename, max_workers);
     GET_CONF_INT (conf, filename, max_clients);
+
+    GET_CONF_INT (conf, filename, prio_workers);
 
     GET_CONF_INT (conf, filename, max_requests);
     GET_CONF_INT (conf, filename, max_client_requests);
@@ -1468,6 +1474,7 @@ int main(int argc, char **argv) {
             config->auth_unix_ro == REMOTE_AUTH_POLKIT;
     if (!(srv = virNetServerNew(config->min_workers,
                                 config->max_workers,
+                                config->prio_workers,
                                 config->max_clients,
                                 config->mdns_adv ? config->mdns_name : NULL,
                                 use_polkit_dbus,

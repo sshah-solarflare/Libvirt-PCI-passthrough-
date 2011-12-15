@@ -122,6 +122,10 @@ AC_MSG_RESULT([$have_cpuid])
 
 AC_CHECK_SIZEOF([long])
 
+dnl Support large files / 64 bit seek offsets.
+dnl This line is needed only to avoid backporting a gnulib submodule update.
+AC_SYS_LARGEFILE
+
 dnl Availability of various common functions (non-fatal if missing),
 dnl and various less common threadsafe functions
 AC_CHECK_FUNCS_ONCE([cfmakeraw geteuid getgid getgrnam_r getmntent_r \

@@ -266,6 +266,8 @@ virDomainDefParseNode;
 virDomainDefParseString;
 virDomainDeleteConfig;
 virDomainDeviceAddressIsValid;
+virDomainDeviceAddressPciMultiTypeFromString;
+virDomainDeviceAddressPciMultiTypeToString;
 virDomainDeviceAddressTypeToString;
 virDomainDeviceDefFree;
 virDomainDeviceDefParse;

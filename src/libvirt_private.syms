@@ -897,13 +897,13 @@ virSecurityManagerRestoreAllLabel;
 virSecurityManagerRestoreHostdevLabel;
 virSecurityManagerRestoreSavedStateLabel;
 virSecurityManagerSetAllLabel;
+virSecurityManagerSetDaemonSocketLabel;
 virSecurityManagerSetImageFDLabel;
 virSecurityManagerSetImageLabel;
 virSecurityManagerSetHostdevLabel;
 virSecurityManagerSetProcessFDLabel;
 virSecurityManagerSetProcessLabel;
 virSecurityManagerSetSavedStateLabel;
-virSecurityManagerSetSocketLabel;
 virSecurityManagerVerify;
 
 # sexpr.h

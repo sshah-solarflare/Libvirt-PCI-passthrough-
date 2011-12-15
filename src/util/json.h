@@ -95,6 +95,7 @@ int virJSONValueArrayAppend(virJSONValuePtr object, virJSONValuePtr value);
 
 int virJSONValueObjectHasKey(virJSONValuePtr object, const char *key);
 virJSONValuePtr virJSONValueObjectGet(virJSONValuePtr object, const char *key);
+int virJSONValueObjectRemoveKey(virJSONValuePtr object, const char *key);
 
 int virJSONValueArraySize(virJSONValuePtr object);
 virJSONValuePtr virJSONValueArrayGet(virJSONValuePtr object, unsigned int element);

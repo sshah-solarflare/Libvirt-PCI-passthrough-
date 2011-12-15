@@ -286,7 +286,7 @@ static int lxcContainerChildMountSort(const void *a, const void *b)
   const char **sa = (const char**)a;
   const char **sb = (const char**)b;
 
-  /* Delibrately reversed args - we need to unmount deepest
+  /* Deliberately reversed args - we need to unmount deepest
      children first */
   return strcmp(*sb, *sa);
 }

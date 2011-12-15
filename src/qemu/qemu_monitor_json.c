@@ -1380,6 +1380,9 @@ int qemuMonitorJSONGetBlockInfo(qemuMonitorPtr mon,
     virJSONValuePtr reply = NULL;
     virJSONValuePtr devices;
 
+    if (!cmd)
+        return -1;
+
     ret = qemuMonitorJSONCommand(mon, cmd, &reply);
     if (ret == 0)
         ret = qemuMonitorJSONCheckError(cmd, reply);

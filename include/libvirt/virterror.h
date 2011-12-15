@@ -234,6 +234,8 @@ typedef enum {
     VIR_ERR_INVALID_STREAM = 73,        /* stream pointer not valid */
     VIR_ERR_ARGUMENT_UNSUPPORTED = 74,  /* valid API use but unsupported by
                                            the given driver */
+    VIR_ERR_SNAPSHOT_REVERT_RISKY = 77, /* force was not requested for a
+                                           risky domain snapshot revert */
 } virErrorNumber;
 
 /**

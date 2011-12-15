@@ -306,7 +306,8 @@ mymain(void)
             QEMU_CAPS_SMBIOS_TYPE,
             QEMU_CAPS_VGA_NONE,
             QEMU_CAPS_MIGRATE_QEMU_FD,
-            QEMU_CAPS_DRIVE_AIO);
+            QEMU_CAPS_DRIVE_AIO,
+            QEMU_CAPS_PCI_ROMBAR);
     DO_TEST("qemu-kvm-0.12.1.2-rhel60", 12001, 1, 0,
             QEMU_CAPS_VNC_COLON,
             QEMU_CAPS_NO_REBOOT,
@@ -347,7 +348,8 @@ mymain(void)
             QEMU_CAPS_VGA_NONE,
             QEMU_CAPS_MIGRATE_QEMU_FD,
             QEMU_CAPS_DRIVE_AIO,
-            QEMU_CAPS_DEVICE_SPICEVMC);
+            QEMU_CAPS_DEVICE_SPICEVMC,
+            QEMU_CAPS_PCI_ROMBAR);
     DO_TEST("qemu-kvm-0.12.3", 12003, 1, 0,
             QEMU_CAPS_VNC_COLON,
             QEMU_CAPS_NO_REBOOT,
@@ -384,7 +386,8 @@ mymain(void)
             QEMU_CAPS_SMBIOS_TYPE,
             QEMU_CAPS_VGA_NONE,
             QEMU_CAPS_MIGRATE_QEMU_FD,
-            QEMU_CAPS_DRIVE_AIO);
+            QEMU_CAPS_DRIVE_AIO,
+            QEMU_CAPS_PCI_ROMBAR);
     DO_TEST("qemu-kvm-0.13.0", 13000, 1, 0,
             QEMU_CAPS_VNC_COLON,
             QEMU_CAPS_NO_REBOOT,
@@ -431,7 +434,8 @@ mymain(void)
             QEMU_CAPS_MIGRATE_QEMU_FD,
             QEMU_CAPS_DRIVE_AIO,
             QEMU_CAPS_DEVICE_SPICEVMC,
-            QEMU_CAPS_PCI_MULTIFUNCTION);
+            QEMU_CAPS_PCI_MULTIFUNCTION,
+            QEMU_CAPS_PCI_ROMBAR);
     DO_TEST("qemu-kvm-0.12.1.2-rhel61", 12001, 1, 0,
             QEMU_CAPS_VNC_COLON,
             QEMU_CAPS_NO_REBOOT,
@@ -477,7 +481,8 @@ mymain(void)
             QEMU_CAPS_DEVICE_QXL_VGA,
             QEMU_CAPS_VIRTIO_TX_ALG,
             QEMU_CAPS_VIRTIO_IOEVENTFD,
-            QEMU_CAPS_DISABLE_KSM);
+            QEMU_CAPS_DISABLE_KSM,
+            QEMU_CAPS_PCI_ROMBAR);
 
     return ret == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }

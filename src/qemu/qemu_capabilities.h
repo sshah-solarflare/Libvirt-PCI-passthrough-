@@ -100,6 +100,7 @@ enum qemuCapsFlags {
     QEMU_CAPS_SGA               = 62, /* Serial Graphics Adapter */
     QEMU_CAPS_VIRTIO_BLK_EVENT_IDX = 63, /* virtio-blk-pci.event_idx */
     QEMU_CAPS_VIRTIO_NET_EVENT_IDX = 64, /* virtio-net-pci.event_idx */
+    QEMU_CAPS_PCI_ROMBAR        = 65, /* -device rombar=0|1 */
 
     QEMU_CAPS_DISABLE_KSM           , /* Is '-redhat-disable-KSM' available? */
 

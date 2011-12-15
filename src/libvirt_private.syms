@@ -380,6 +380,8 @@ virDomainObjUnlock;
 virDomainObjUnref;
 virDomainPausedReasonTypeFromString;
 virDomainPausedReasonTypeToString;
+virDomainPciRombarModeTypeFromString;
+virDomainPciRombarModeTypeToString;
 virDomainRemoveInactive;
 virDomainRunningReasonTypeFromString;
 virDomainRunningReasonTypeToString;

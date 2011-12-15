@@ -1262,6 +1262,17 @@ int qemuCapsExtractVersionInfo(const char *qemu, const char *arch,
         qemuCapsSet(flags, QEMU_CAPS_PCI_MULTIBUS);
     }
 
+    /*
+     * RHEL-6 specific hack to enable some features that were backported
+     * Only RHEL-6 puts KVM in /usr/libexec, so we hook off that since
+     * version numbers don't place nice with backports
+     */
+    if (STREQ(qemu, "/usr/libexec/qemu-kvm") &&
+        version >= 12000) {
+        qemuCapsSet(flags, QEMU_CAPS_MONITOR_JSON);
+        qemuCapsSet(flags, QEMU_CAPS_NETDEV);
+    }
+
     /* qemuCapsExtractDeviceStr will only set additional flags if qemu
      * understands the 0.13.0+ notion of "-device driver,".  */
     if (qemuCapsGet(flags, QEMU_CAPS_DEVICE) &&

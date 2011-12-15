@@ -1303,6 +1303,7 @@ struct _virDomainSnapshotDef {
     char *parent;
     long long creationTime; /* in seconds */
     int state;
+    virDomainDefPtr dom;
 
     /* Internal use.  */
     bool current; /* At most one snapshot in the list should have this set */
@@ -1331,10 +1332,13 @@ typedef enum {
 } virDomainSnapshotParseFlags;
 
 virDomainSnapshotDefPtr virDomainSnapshotDefParseString(const char *xmlStr,
+                                                        virCapsPtr caps,
+                                                        unsigned int expectedVirtTypes,
                                                         unsigned int flags);
 void virDomainSnapshotDefFree(virDomainSnapshotDefPtr def);
 char *virDomainSnapshotDefFormat(char *domain_uuid,
                                  virDomainSnapshotDefPtr def,
+                                 unsigned int flags,
                                  int internal);
 virDomainSnapshotObjPtr virDomainSnapshotAssignDef(virDomainSnapshotObjListPtr snapshots,
                                                    const virDomainSnapshotDefPtr def);

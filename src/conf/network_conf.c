@@ -50,7 +50,7 @@ VIR_ENUM_DECL(virNetworkForward)
 
 VIR_ENUM_IMPL(virNetworkForward,
               VIR_NETWORK_FORWARD_LAST,
-              "none", "nat", "route", "bridge", "private", "vepa", "passthrough" )
+              "none", "nat", "route", "bridge", "private", "vepa", "passthrough", "pci-passthrough")
 
 #define virNetworkReportError(code, ...)                                \
     virReportErrorHelper(VIR_FROM_NETWORK, code, __FILE__,              \
@@ -1092,6 +1092,7 @@ virNetworkDefParseXML(xmlXPathContextPtr ctxt)
             break;
         case VIR_NETWORK_FORWARD_PRIVATE:
         case VIR_NETWORK_FORWARD_VEPA:
+        case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH:
         case VIR_NETWORK_FORWARD_PASSTHROUGH:
             if (def->bridge) {
                 virNetworkReportError(VIR_ERR_XML_ERROR,

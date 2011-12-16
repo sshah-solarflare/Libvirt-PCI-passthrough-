@@ -80,6 +80,7 @@
                   <value>route</value>
                   <value>bridge</value>
                   <value>passthrough</value>
+		  <value>pci-passthrough</value>
                   <value>private</value>
                   <value>vepa</value>
                 </choice>

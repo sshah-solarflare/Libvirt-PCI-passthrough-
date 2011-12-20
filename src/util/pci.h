@@ -108,4 +108,7 @@ int pciGetDeviceAddrString(unsigned domain,
                            unsigned function,
                            char **pciConfigAddr);
 
+int pciGetDeviceAddr(const char *device_link,
+                     struct pci_config_address **bdf);
+
 #endif /* __VIR_PCI_H__ */

@@ -1229,9 +1229,55 @@ ifaceSysfsDeviceFile(char **pf_sysfs_device_link, const char *ifname,
 }
 
 /*
+ * ifaceGetPciConfigAddress:
+ * 
+ * @vfname : name of the physical function interface
+ * @domain : pointer to PCI device domain value
+ * @bus : pointer to PCI device bus value
+ * @slot : pointer to PCI device slot value
+ * @function : pointer to PCI device function value
+ *
+ * Returns 0 on success and -1 on failure
+ */
+
+int
+ifaceGetPciConfigAddress(const char *vfname,
+                         unsigned int *domain,
+                         unsigned int *bus,
+                         unsigned int *slot,
+                         unsigned int *function)
+{
+    int ret = -1;
+    struct pci_config_address *dev;
+    char *device_link = NULL;
+
+    if (ifaceSysfsFile(&device_link, vfname, "device")) 
+        return ret;
+    
+    if ((pciGetDeviceAddr(device_link,
+                          &dev)) < 0) {
+        virReportSystemError(ENOSYS, "%s",
+                             _("Failed to get PCI Config Address of %s"));
+        goto out;
+    }
+    
+    *domain = dev->domain;
+    *bus = dev->bus;
+    *slot = dev->slot;
+    *function = dev->function;
+
+    ret = 0;
+
+out:
+    VIR_FREE(dev);    
+    VIR_FREE(device_link); 
+    return ret;
+}
+
+/*
  * ifaceGetVirtualFunctions:
  *
- * @pfname : name of the physical function interface name
+ * @pfname : name of the physical function interface 
  * @vfname: array that will hold the interface names of the virtual_functions
  * @n_vfname: pointer to the number of virtual functions
  *

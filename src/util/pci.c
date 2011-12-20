@@ -1846,6 +1846,23 @@ out:
     return ret;
 }
 
+int 
+pciGetDeviceAddr(const char *device_link,
+                 struct pci_config_address **bdf)
+{
+    int ret = -1;
+    
+    if ((pciGetPciConfigAddressFromSysfsDeviceLink(device_link,
+                                                   bdf)) < 0) {
+        goto error;
+    }
+    
+    ret = 0;
+
+error:
+    return ret;
+}
+
 #ifdef __linux__
 /*
  * Returns Physical function given a virtual function

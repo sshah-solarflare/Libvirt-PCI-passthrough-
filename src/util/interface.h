@@ -92,4 +92,10 @@ int ifaceGetVirtualFunctions(const char *pfname,
                              char ***vfname,
                              unsigned int *n_vfname);
 
+int ifaceGetPciConfigAddress(const char *vfname,
+                             unsigned int *domain,
+                             unsigned int *bus,
+                             unsigned int *slot,
+                             unsigned int *function);
+
 #endif /* __VIR_INTERFACE_H__ */

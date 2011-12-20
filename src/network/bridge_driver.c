@@ -1992,6 +1992,7 @@ networkStartNetwork(struct network_driver *driver,
     case VIR_NETWORK_FORWARD_PRIVATE:
     case VIR_NETWORK_FORWARD_VEPA:
     case VIR_NETWORK_FORWARD_PASSTHROUGH:
+    case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH:
         ret = networkStartNetworkExternal(driver, network);
         break;
     }
@@ -2051,6 +2052,7 @@ static int networkShutdownNetwork(struct network_driver *driver,
     case VIR_NETWORK_FORWARD_PRIVATE:
     case VIR_NETWORK_FORWARD_VEPA:
     case VIR_NETWORK_FORWARD_PASSTHROUGH:
+    case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH:
         ret = networkShutdownNetworkExternal(driver, network);
         break;
     }
@@ -2829,7 +2831,8 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
     } else if ((netdef->forwardType == VIR_NETWORK_FORWARD_BRIDGE) ||
                (netdef->forwardType == VIR_NETWORK_FORWARD_PRIVATE) ||
                (netdef->forwardType == VIR_NETWORK_FORWARD_VEPA) ||
-               (netdef->forwardType == VIR_NETWORK_FORWARD_PASSTHROUGH)) {
+               (netdef->forwardType == VIR_NETWORK_FORWARD_PASSTHROUGH) ||
+               (netdef->forwardType == VIR_NETWORK_FORWARD_PCI_PASSTHROUGH)) {
         virVirtualPortProfileParamsPtr virtport = NULL;
 
         /* <forward type='bridge|private|vepa|passthrough'> are all
@@ -2856,6 +2859,9 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
             break;
         case VIR_NETWORK_FORWARD_PASSTHROUGH:
             iface->data.network.actual->data.direct.mode = VIR_MACVTAP_MODE_PASSTHRU;
+            break;
+        case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH:
+            iface->data.network.actual->data.direct.mode = VIR_MACVTAP_MODE_PCI_PASSTHRU; //Check this SSHAH
             break;
         }
 
@@ -2901,7 +2907,8 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
              * 0.  Other modes can share, so just search for the one with
              * the lowest usageCount.
              */
-            if (netdef->forwardType == VIR_NETWORK_FORWARD_PASSTHROUGH) {
+            if ((netdef->forwardType == VIR_NETWORK_FORWARD_PASSTHROUGH) ||
+                (netdef->forwardType == VIR_NETWORK_FORWARD_PCI_PASSTHROUGH)) {
                 if ((netdef->nForwardPfs > 0) && (netdef->nForwardIfs <= 0)) {
                     if ((ifaceGetVirtualFunctions(netdef->forwardPfs->dev, 
                                                   &vfname, &num_virt_fns)) < 0){

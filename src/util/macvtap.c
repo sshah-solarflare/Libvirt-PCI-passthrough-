@@ -56,7 +56,8 @@ VIR_ENUM_IMPL(virMacvtapMode, VIR_MACVTAP_MODE_LAST,
               "vepa",
               "private",
               "bridge",
-              "passthrough")
+              "passthrough",
+              "pci-passthrough")
 
 #if WITH_MACVTAP || WITH_VIRTUALPORT
 
@@ -235,6 +236,7 @@ static const uint32_t modeMap[VIR_MACVTAP_MODE_LAST] = {
     [VIR_MACVTAP_MODE_PRIVATE] = MACVLAN_MODE_PRIVATE,
     [VIR_MACVTAP_MODE_BRIDGE] = MACVLAN_MODE_BRIDGE,
     [VIR_MACVTAP_MODE_PASSTHRU] = MACVLAN_MODE_PASSTHRU,
+    [VIR_MACVTAP_MODE_PCI_PASSTHRU] = MACVLAN_MODE_BRIDGE, //Check this SSHAH
 };
 
 /**
@@ -277,6 +279,7 @@ openMacvtapTap(const char *tgifname,
     uint32_t macvtapMode;
     const char *cr_ifname;
     int ifindex;
+    char *pfname;
 
     macvtapMode = modeMap[mode];
 
@@ -291,7 +294,9 @@ openMacvtapTap(const char *tgifname,
      * This is especially important when using SRIOV capable cards that
      * emulate their switch in firmware.
      */
-    if (mode == VIR_MACVTAP_MODE_PASSTHRU) {
+    if ((mode == VIR_MACVTAP_MODE_PASSTHRU) || 
+        (mode == VIR_MACVTAP_MODE_PCI_PASSTHRU)){
+        //change needed to access sysfs here according to solarflare architecture SSHAH
         if (ifaceReplaceMacAddress(macaddress, linkdev, stateDir) != 0) {
             return -1;
         }
@@ -308,8 +313,25 @@ openMacvtapTap(const char *tgifname,
             return -1;
         }
         cr_ifname = tgifname;
-        rc = ifaceMacvtapLinkAdd(type, macaddress, 6, tgifname, linkdev,
-                                 macvtapMode, &do_retry);
+
+        if (mode == VIR_MACVTAP_MODE_PCI_PASSTHRU) {
+            if ((rc = ifaceGetPhysicalFunction(linkdev, &pfname)) < 0) {
+                virReportSystemError(errno,
+                                     _("Could not get physical function for %s"),
+                                     linkdev);
+                return -1;
+            }
+            else {
+                rc = ifaceMacvtapLinkAdd(type, macaddress, 6, tgifname, 
+                                         (const char *)pfname,
+                                         macvtapMode, &do_retry);
+            }
+        }
+        else {
+            rc = ifaceMacvtapLinkAdd(type, macaddress, 6, tgifname, linkdev,
+                                     macvtapMode, &do_retry);
+        }
+
         if (rc < 0)
             return -1;
     } else {

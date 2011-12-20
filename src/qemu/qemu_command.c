@@ -38,6 +38,7 @@
 #include "domain_audit.h"
 #include "domain_conf.h"
 #include "network/bridge_driver.h"
+#include "interface.h"
 
 #include <sys/utsname.h>
 #include <sys/stat.h>
@@ -120,11 +121,43 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
 #if WITH_MACVTAP
     char *res_ifname = NULL;
     int vnet_hdr = 0;
+    virDomainHostdevDefPtr dev;
     int err;
 
     if (qemuCapsGet(qemuCaps, QEMU_CAPS_VNET_HDR) &&
         net->model && STREQ(net->model, "virtio"))
         vnet_hdr = 1;
+
+    if (virDomainNetGetActualDirectMode(net) == VIR_MACVTAP_MODE_PCI_PASSTHRU) {
+        virDomainDevicePCIAddressPtr addr;
+        if (VIR_ALLOC(dev) < 0) {
+            virReportOOMError();
+        } 
+        else {
+            dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
+            dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+            addr = &dev->source.subsys.u.pci;
+            if ((err = ifaceGetPciConfigAddress(virDomainNetGetActualDirectDev(net),
+                                               &addr->domain,
+                                               &addr->bus,
+                                               &addr->slot,
+                                                &addr->function)) < 0 ) {
+                virReportSystemError(err,
+                                     _("failed to get PCI device addr of '%s'"),
+                                     virDomainNetGetActualDirectDev(net)); 
+            }
+            //Get pciDeviceAddress of linkdev and store it in &addr->domain
+            //&addr->bus &addr->slot &addr->function SSHAH
+            if (VIR_REALLOC_N(def->hostdevs, def->nhostdevs+1) < 0) {
+                virReportOOMError();
+                VIR_FREE(dev);
+            } 
+            else {
+                def->hostdevs[def->nhostdevs] = dev;
+                def->nhostdevs++;
+            }
+        }
+    }
 
     rc = openMacvtapTap(net->ifname, net->mac,
                         virDomainNetGetActualDirectDev(net),

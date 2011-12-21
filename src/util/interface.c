@@ -1147,6 +1147,39 @@ ifaceReplaceMacAddress(const unsigned char *macaddress,
 }
 
 /**
+ * ifaceReplaceVfMacAddress:
+ * @macaddress: new MAC address for interface
+ * @vf_pci_addr: BDF of the PCI Function in a %.4x:%.2x:%.2x.%.1x format 
+ *
+ * Returns 0 on success, -errno on failure
+ *
+ */
+
+int 
+ifaceReplaceVfMacAddress(const unsigned char *macaddress,
+                         const char *vf_pci_addr)
+{
+    int rc = -1;
+    char *pci_sysfs_device_link = NULL;
+    char macstr[VIR_MAC_STRING_BUFLEN];
+    const char *file = "mac_addr";
+    
+    if (pciSysfsDeviceFile(&pci_sysfs_device_link, vf_pci_addr, file) < 0) {
+        virReportSystemError(ENOSYS, "%s",
+                             _("Failed to get PCI SYSFS file"));
+        goto out;
+    }
+    virFormatMacAddr(macaddress, macstr);
+    
+    rc = virFileWriteStr(pci_sysfs_device_link, macstr, 0);
+
+out:
+    VIR_FREE(pci_sysfs_device_link);
+    return rc;
+}
+
+
+/**
  * ifaceRestoreMacAddress:
  * @linkdev: name of interface
  * @stateDir: directory containing old MAC address
@@ -1241,21 +1274,16 @@ ifaceSysfsDeviceFile(char **pf_sysfs_device_link, const char *ifname,
  */
 
 int
-ifaceGetPciConfigAddress(const char *vfname,
-                         unsigned int *domain,
-                         unsigned int *bus,
-                         unsigned int *slot,
-                         unsigned int *function)
+ifaceGetVfPCIAddr(const char *vf_pci_addr,
+                  unsigned int *domain,
+                  unsigned int *bus,
+                  unsigned int *slot,
+                  unsigned int *function)
 {
     int ret = -1;
     struct pci_config_address *dev;
-    char *device_link = NULL;
-
-    if (ifaceSysfsFile(&device_link, vfname, "device")) 
-        return ret;
     
-    if ((pciGetDeviceAddr(device_link,
-                          &dev)) < 0) {
+    if ((pciGetVfDeviceAddr(vf_pci_addr, &dev)) < 0) {
         virReportSystemError(ENOSYS, "%s",
                              _("Failed to get PCI Config Address of %s"));
         goto out;
@@ -1270,7 +1298,63 @@ ifaceGetPciConfigAddress(const char *vfname,
 
 out:
     VIR_FREE(dev);    
-    VIR_FREE(device_link); 
+    return ret;
+}
+
+/*
+ * ifaceGetVirtualFunctionsPCIAddr:
+ *
+ * @pfname : name of the physical function interface 
+ * @vf_pci_addr: array that will hold the BDF of the virtual_functions in string format
+ * @n_vf_pci_addr: pointer to the number of virtual functions
+ *
+ * Returns 0 on success and -1 on failure
+ */
+
+int
+ifaceGetVirtualFunctionsPCIAddr(const char *pfname,
+                                char ***vf_pci_addr,
+                                unsigned int *n_vf_pci_addr)
+{
+    int ret = -1, i;
+    char *pf_sysfs_device_link = NULL;
+    struct pci_config_address **virt_fns;
+
+    if (ifaceSysfsFile(&pf_sysfs_device_link, pfname, "device") < 0)
+        return ret;
+    
+    if (pciGetVirtualFunctions(pf_sysfs_device_link, &virt_fns,
+                               n_vf_pci_addr) < 0) {
+        virReportSystemError(ENOSYS, "%s",
+                             _("Failed to get virtual functions"));
+        goto out;
+    }
+    
+    if (VIR_ALLOC_N(*vf_pci_addr, *n_vf_pci_addr) < 0) {
+        virReportOOMError();
+        goto out;
+    }
+    
+   for (i = 0; i < *n_vf_pci_addr; i++)
+   {
+       if (pciGetDeviceAddrString(virt_fns[i]->domain, 
+                                  virt_fns[i]->bus, 
+                                  virt_fns[i]->slot, 
+                                  virt_fns[i]->function,
+                                   &((*vf_pci_addr)[i])) < 0) {
+           virReportSystemError(ENOSYS, "%s",
+                                _("Failed to get PCI Config Address String"));
+           goto out;
+       } 
+   }
+   
+   ret = 0;
+   
+out:
+    for (i = 0; i < *n_vf_pci_addr; i++)
+        VIR_FREE(virt_fns[i]);
+    VIR_FREE(virt_fns);    
+    VIR_FREE(pf_sysfs_device_link);
     return ret;
 }
 
@@ -1290,20 +1374,17 @@ ifaceGetVirtualFunctions(const char *pfname,
                          unsigned int *n_vfname)
 {                            
     int ret = -1, i;
-    char *pf_sysfs_device_link = NULL;
+    char **vf_pci_addr = NULL;
     char *pci_sysfs_device_link = NULL;
-    struct pci_config_address **virt_fns;
-    char *pciConfigAddr;
-    
-    if (ifaceSysfsFile(&pf_sysfs_device_link, pfname, "device") < 0)
-        return ret;
-    
-    if (pciGetVirtualFunctions(pf_sysfs_device_link, &virt_fns,
-                               n_vfname) < 0) {
+    unsigned int n_vf_pci_addr = 0;
+
+    if ((ifaceGetVirtualFunctionsPCIAddr(pfname, &vf_pci_addr, &n_vf_pci_addr)) < 0) {
         virReportSystemError(ENOSYS, "%s",
-                             _("Failed to get virtual functions"));
+                             _("Could not get Virtual functions PCI addr on"));
         goto out;
     }
+    
+    *n_vfname = n_vf_pci_addr;
     
     if (VIR_ALLOC_N(*vfname, *n_vfname) < 0) {
         virReportOOMError();
@@ -1312,16 +1393,7 @@ ifaceGetVirtualFunctions(const char *pfname,
     
     for (i = 0; i < *n_vfname; i++)
     {
-        if (pciGetDeviceAddrString(virt_fns[i]->domain, 
-                                   virt_fns[i]->bus, 
-                                   virt_fns[i]->slot, 
-                                   virt_fns[i]->function,
-                                   &pciConfigAddr) < 0) {
-            virReportSystemError(ENOSYS, "%s",
-                                 _("Failed to get PCI Config Address String"));
-            goto out;
-        }
-        if (pciSysfsFile(pciConfigAddr, &pci_sysfs_device_link) < 0) {
+        if (pciSysfsFile(vf_pci_addr[i], &pci_sysfs_device_link) < 0) {
             virReportSystemError(ENOSYS, "%s",
                                  _("Failed to get PCI SYSFS file"));
             goto out;
@@ -1338,11 +1410,9 @@ ifaceGetVirtualFunctions(const char *pfname,
     
 out:
     for (i = 0; i < *n_vfname; i++)
-        VIR_FREE(virt_fns[i]);
-    VIR_FREE(virt_fns);    
-    VIR_FREE(pf_sysfs_device_link);
+        VIR_FREE(vf_pci_addr[i]);
+    VIR_FREE(vf_pci_addr);  
     VIR_FREE(pci_sysfs_device_link);
-    VIR_FREE(pciConfigAddr);
     return ret;
 }
 

@@ -800,6 +800,7 @@ virDomainActualNetDefFree(virDomainActualNetDefPtr def)
         break;
     case VIR_DOMAIN_NET_TYPE_DIRECT:
         VIR_FREE(def->data.direct.linkdev);
+        VIR_FREE(def->data.direct.vf_pci_addr);
         VIR_FREE(def->data.direct.virtPortProfile);
         break;
     default:
@@ -850,6 +851,7 @@ void virDomainNetDefFree(virDomainNetDefPtr def)
 
     case VIR_DOMAIN_NET_TYPE_DIRECT:
         VIR_FREE(def->data.direct.linkdev);
+        VIR_FREE(def->data.direct.vf_pci_addr);
         VIR_FREE(def->data.direct.virtPortProfile);
         break;
 
@@ -2778,6 +2780,7 @@ virDomainActualNetDefParseXML(xmlNodePtr node,
                 goto error;
             }
             actual->data.direct.mode = m;
+            actual->data.direct.vf_pci_addr = NULL;
         }
 
         virtPortNode = virXPathNode("./virtualport", ctxt);
@@ -3094,6 +3097,7 @@ virDomainNetDefParseXML(virCapsPtr caps,
         def->data.direct.virtPortProfile = virtPort;
         virtPort = NULL;
         def->data.direct.linkdev = dev;
+        def->data.direct.vf_pci_addr = NULL;
         dev = NULL;
 
         if ((flags & VIR_DOMAIN_XML_INACTIVE))
@@ -12215,6 +12219,18 @@ virDomainNetGetActualType(virDomainNetDefPtr iface)
     if (!iface->data.network.actual)
         return iface->type;
     return iface->data.network.actual->type;
+}
+
+char *
+virDomainNetGetActualVfPCIAddr(virDomainNetDefPtr iface)
+{
+    if (iface->type == VIR_DOMAIN_NET_TYPE_DIRECT)
+        return iface->data.direct.vf_pci_addr;
+    if (iface->type != VIR_DOMAIN_NET_TYPE_NETWORK)
+        return NULL;
+    if (!iface->data.network.actual)
+        return NULL;
+    return iface->data.network.actual->data.direct.vf_pci_addr;
 }
 
 char *

@@ -41,7 +41,7 @@ enum virNetworkForwardType {
     VIR_NETWORK_FORWARD_PRIVATE,
     VIR_NETWORK_FORWARD_VEPA,
     VIR_NETWORK_FORWARD_PASSTHROUGH,
-    VIR_NETWORK_FORWARD_PCI_PASSTHROUGH,
+    VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID,
 
     VIR_NETWORK_FORWARD_LAST,
 };
@@ -111,6 +111,20 @@ struct _virNetworkIpDef {
     virSocketAddr bootserver;
    };
 
+typedef struct _virNetworkForwardVfDef virNetworkForwardVfDef;
+typedef virNetworkForwardVfDef *virNetworkForwardVfDefPtr;
+struct _virNetworkForwardVfDef {
+    char *pci_device_addr;
+    int usageCount;
+};
+
+typedef struct _virNetworkForwardPfDef virNetworkForwardPfDef;
+typedef virNetworkForwardPfDef *virNetworkForwardPfDefPtr;
+struct _virNetworkForwardPfDef {
+    char *dev;
+    int usageCount;
+};
+
 typedef struct _virNetworkForwardIfDef virNetworkForwardIfDef;
 typedef virNetworkForwardIfDef *virNetworkForwardIfDefPtr;
 struct _virNetworkForwardIfDef {
@@ -146,7 +160,10 @@ struct _virNetworkDef {
      * interfaces), they will be listed here.
      */
     size_t nForwardPfs;
-    virNetworkForwardIfDefPtr forwardPfs;
+    virNetworkForwardPfDefPtr forwardPfs;
+    
+    size_t nForwardVfs;
+    virNetworkForwardVfDefPtr forwardVfs;
     
     size_t nForwardIfs;
     virNetworkForwardIfDefPtr forwardIfs;

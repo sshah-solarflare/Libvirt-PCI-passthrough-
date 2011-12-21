@@ -812,20 +812,6 @@ pciDriverFile(char **buffer, const char *driver, const char *file)
     return 0;
 }
 
-static int
-pciDeviceFile(char **buffer, const char *device, const char *file)
-{
-    VIR_FREE(*buffer);
-
-    if (virAsprintf(buffer, PCI_SYSFS "devices/%s/%s", device, file) < 0) {
-        virReportOOMError();
-        return -1;
-    }
-
-    return 0;
-}
-
-
 static const char *
 pciFindStubDriver(void)
 {
@@ -893,7 +879,7 @@ pciUnbindDeviceFromStub(pciDevice *dev, const char *driver)
 
     /* If the device is bound to stub, unbind it.
      */
-    if (pciDeviceFile(&path, dev->name, "driver") < 0)
+    if (pciSysfsDeviceFile(&path, dev->name, "driver") < 0)
         goto cleanup;
 
     if (virFileExists(drvdir) && virFileLinkPointsTo(path, drvdir)) {
@@ -976,7 +962,7 @@ pciBindDeviceToStub(pciDevice *dev, const char *driver)
 
     /* check whether the device is already bound to a driver */
     if (pciDriverDir(&drvdir, driver) < 0 ||
-        pciDeviceFile(&path, dev->name, "driver") < 0) {
+        pciSysfsDeviceFile(&path, dev->name, "driver") < 0) {
         goto cleanup;
     }
 
@@ -1012,7 +998,7 @@ pciBindDeviceToStub(pciDevice *dev, const char *driver)
      * new_id.
      */
     if (pciDriverDir(&drvdir, driver) < 0 ||
-        pciDeviceFile(&path, dev->name, "driver") < 0) {
+        pciSysfsDeviceFile(&path, dev->name, "driver") < 0) {
         goto remove_id;
     }
 
@@ -1027,7 +1013,7 @@ pciBindDeviceToStub(pciDevice *dev, const char *driver)
      * PCI device happens to be IDE controller for the disk hosting
      * your root filesystem.
      */
-    if (pciDeviceFile(&path, dev->name, "driver/unbind") < 0) {
+    if (pciSysfsDeviceFile(&path, dev->name, "driver/unbind") < 0) {
         goto cleanup;
     }
 
@@ -1044,7 +1030,7 @@ pciBindDeviceToStub(pciDevice *dev, const char *driver)
     /* If the device isn't already bound to pci-stub, try binding it now.
      */
     if (pciDriverDir(&drvdir, driver) < 0 ||
-        pciDeviceFile(&path, dev->name, "driver") < 0) {
+        pciSysfsDeviceFile(&path, dev->name, "driver") < 0) {
         goto remove_id;
     }
 
@@ -1269,7 +1255,7 @@ pciReadDeviceID(pciDevice *dev, const char *id_name)
     char *path = NULL;
     char *id_str;
 
-    if (pciDeviceFile(&path, dev->name, id_name) < 0) {
+    if (pciSysfsDeviceFile(&path, dev->name, id_name) < 0) {
         return NULL;
     }
 
@@ -1315,6 +1301,8 @@ pciGetDeviceAddrString(unsigned domain,
     pciFreeDevice(dev);
     return ret;
 }
+
+//Add a function to do the opposite
 
 pciDevice *
 pciGetDevice(unsigned domain,
@@ -1847,13 +1835,12 @@ out:
 }
 
 int 
-pciGetDeviceAddr(const char *device_link,
-                 struct pci_config_address **bdf)
+pciGetVfDeviceAddr(const char *address,
+                   struct pci_config_address **bdf)
 {
     int ret = -1;
     
-    if ((pciGetPciConfigAddressFromSysfsDeviceLink(device_link,
-                                                   bdf)) < 0) {
+    if ((pciParsePciConfigAddress((char *)address, *bdf)) != 0) {
         goto error;
     }
     
@@ -2044,6 +2031,25 @@ pciSysfsFile(char *pciDeviceName, char **pci_sysfs_device_link)
     
     return 0;
 }
+
+/*
+ * Returns path to the PCI sysfs file given the BDF of the PCI function
+ * and the file name
+ */
+
+int
+pciSysfsDeviceFile(char **buffer, const char *device, const char *file)
+{
+    VIR_FREE(*buffer);
+
+    if (virAsprintf(buffer, PCI_SYSFS "devices/%s/%s", device, file) < 0) {
+        virReportOOMError();
+        return -1;
+    }
+
+    return 0;
+}
+
 
 /*
  * Returns the network device name of a pci device

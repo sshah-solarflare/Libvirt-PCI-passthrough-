@@ -50,7 +50,7 @@ VIR_ENUM_DECL(virNetworkForward)
 
 VIR_ENUM_IMPL(virNetworkForward,
               VIR_NETWORK_FORWARD_LAST,
-              "none", "nat", "route", "bridge", "private", "vepa", "passthrough", "pci-passthrough")
+              "none", "nat", "route", "bridge", "private", "vepa", "passthrough", "pci-passthrough-hybrid")
 
 #define virNetworkReportError(code, ...)                                \
     virReportErrorHelper(VIR_FROM_NETWORK, code, __FILE__,              \
@@ -100,6 +100,18 @@ static void
 virNetworkForwardIfDefClear(virNetworkForwardIfDefPtr def)
 {
     VIR_FREE(def->dev);
+}
+
+static void 
+virNetworkForwardPfDefClear(virNetworkForwardPfDefPtr def)
+{
+    VIR_FREE(def->dev);
+}
+
+static void
+virNetworkForwardVfDefClear(virNetworkForwardVfDefPtr def)
+{
+    VIR_FREE(def->pci_device_addr);
 }
 
 static void virNetworkIpDefClear(virNetworkIpDefPtr def)
@@ -153,9 +165,14 @@ void virNetworkDefFree(virNetworkDefPtr def)
     VIR_FREE(def->domain);
 
     for (ii = 0 ; ii < def->nForwardPfs && def->forwardPfs ; ii++) {
-        virNetworkForwardIfDefClear(&def->forwardPfs[ii]);
+        virNetworkForwardPfDefClear(&def->forwardPfs[ii]);
     }
     VIR_FREE(def->forwardPfs);
+
+    for (ii = 0 ; ii < def->nForwardVfs && def->forwardVfs ; ii++) {
+        virNetworkForwardVfDefClear(&def->forwardVfs[ii]);
+    }
+    VIR_FREE(def->forwardVfs);
 
     for (ii = 0 ; ii < def->nForwardIfs && def->forwardIfs ; ii++) {
         virNetworkForwardIfDefClear(&def->forwardIfs[ii]);
@@ -1092,7 +1109,7 @@ virNetworkDefParseXML(xmlXPathContextPtr ctxt)
             break;
         case VIR_NETWORK_FORWARD_PRIVATE:
         case VIR_NETWORK_FORWARD_VEPA:
-        case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH:
+        case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID:
         case VIR_NETWORK_FORWARD_PASSTHROUGH:
             if (def->bridge) {
                 virNetworkReportError(VIR_ERR_XML_ERROR,
@@ -1375,6 +1392,7 @@ char *virNetworkDefFormat(const virNetworkDefPtr def, unsigned int flags)
                 }
             }
         }
+    
     escape:
         virBufferAddLit(&buf, "  </forward>\n");
     }

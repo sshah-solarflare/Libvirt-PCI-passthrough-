@@ -392,6 +392,7 @@ struct _virDomainActualNetDef {
         } bridge;
         struct {
             char *linkdev;
+            char *vf_pci_addr;
             int mode; /* enum virMacvtapMode from util/macvtap.h */
             virVirtualPortProfileParamsPtr virtPortProfile;
         } direct;
@@ -448,6 +449,7 @@ struct _virDomainNetDef {
         } internal;
         struct {
             char *linkdev;
+            char *vf_pci_addr;
             int mode; /* enum virMacvtapMode from util/macvtap.h */
             virVirtualPortProfileParamsPtr virtPortProfile;
         } direct;
@@ -1619,6 +1621,7 @@ int virDomainNetGetActualType(virDomainNetDefPtr iface);
 char *virDomainNetGetActualBridgeName(virDomainNetDefPtr iface);
 char *virDomainNetGetActualDirectDev(virDomainNetDefPtr iface);
 int virDomainNetGetActualDirectMode(virDomainNetDefPtr iface);
+char *virDomainNetGetActualVfPCIAddr(virDomainNetDefPtr iface);
 virVirtualPortProfileParamsPtr
 virDomainNetGetActualDirectVirtPortProfile(virDomainNetDefPtr iface);
 virBandwidthPtr

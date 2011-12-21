@@ -31,7 +31,7 @@ enum virMacvtapMode {
     VIR_MACVTAP_MODE_PRIVATE,
     VIR_MACVTAP_MODE_BRIDGE,
     VIR_MACVTAP_MODE_PASSTHRU,
-    VIR_MACVTAP_MODE_PCI_PASSTHRU,
+    VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID,
 
     VIR_MACVTAP_MODE_LAST,
 };
@@ -58,6 +58,7 @@ int openMacvtapTap(const char *ifname,
                    const unsigned char *macaddress,
                    const char *linkdev,
                    enum virMacvtapMode mode,
+                   const char *vf_pci_addr,
                    int vnet_hdr,
                    const unsigned char *vmuuid,
                    virVirtualPortProfileParamsPtr virtPortProfile,

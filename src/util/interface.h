@@ -78,6 +78,9 @@ int ifaceReplaceMacAddress(const unsigned char *macaddress,
                            const char *linkdev,
                            const char *stateDir);
 
+int ifaceReplaceVfMacAddress(const unsigned char *macaddress,
+                             const char *vf_pci_addr);
+
 int ifaceRestoreMacAddress(const char *linkdev,
                            const char *stateDir);
 
@@ -92,10 +95,14 @@ int ifaceGetVirtualFunctions(const char *pfname,
                              char ***vfname,
                              unsigned int *n_vfname);
 
-int ifaceGetPciConfigAddress(const char *vfname,
-                             unsigned int *domain,
-                             unsigned int *bus,
-                             unsigned int *slot,
-                             unsigned int *function);
+int ifaceGetVirtualFunctionsPCIAddr(const char *pfname,
+                                    char ***vf_pci_addr,
+                                    unsigned int *n_vf_pci_addr);
+    
+int ifaceGetVfPCIAddr(const char *vf_pci_addr,
+                      unsigned int *domain,
+                      unsigned int *bus,
+                      unsigned int *slot,
+                      unsigned int *function);
 
 #endif /* __VIR_INTERFACE_H__ */

@@ -102,13 +102,15 @@ int pciDeviceNetName(char *device_link_sysfs_path, char **netname);
 
 int pciSysfsFile(char *pciDeviceName, char **pci_sysfs_device_link);
 
+int pciSysfsDeviceFile(char **buffer, const char *device, const char *file);
+
 int pciGetDeviceAddrString(unsigned domain,
                            unsigned bus,
                            unsigned slot,
                            unsigned function,
                            char **pciConfigAddr);
 
-int pciGetDeviceAddr(const char *device_link,
-                     struct pci_config_address **bdf);
+int pciGetVfDeviceAddr(const char *address,
+                       struct pci_config_address **bdf);
 
 #endif /* __VIR_PCI_H__ */

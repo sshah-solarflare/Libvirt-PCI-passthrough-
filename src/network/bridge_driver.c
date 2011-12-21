@@ -1992,7 +1992,7 @@ networkStartNetwork(struct network_driver *driver,
     case VIR_NETWORK_FORWARD_PRIVATE:
     case VIR_NETWORK_FORWARD_VEPA:
     case VIR_NETWORK_FORWARD_PASSTHROUGH:
-    case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH:
+    case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID:
         ret = networkStartNetworkExternal(driver, network);
         break;
     }
@@ -2052,7 +2052,7 @@ static int networkShutdownNetwork(struct network_driver *driver,
     case VIR_NETWORK_FORWARD_PRIVATE:
     case VIR_NETWORK_FORWARD_VEPA:
     case VIR_NETWORK_FORWARD_PASSTHROUGH:
-    case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH:
+    case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID:
         ret = networkShutdownNetworkExternal(driver, network);
         break;
     }
@@ -2832,7 +2832,7 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
                (netdef->forwardType == VIR_NETWORK_FORWARD_PRIVATE) ||
                (netdef->forwardType == VIR_NETWORK_FORWARD_VEPA) ||
                (netdef->forwardType == VIR_NETWORK_FORWARD_PASSTHROUGH) ||
-               (netdef->forwardType == VIR_NETWORK_FORWARD_PCI_PASSTHROUGH)) {
+               (netdef->forwardType == VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID)) {
         virVirtualPortProfileParamsPtr virtport = NULL;
 
         /* <forward type='bridge|private|vepa|passthrough'> are all
@@ -2860,8 +2860,8 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
         case VIR_NETWORK_FORWARD_PASSTHROUGH:
             iface->data.network.actual->data.direct.mode = VIR_MACVTAP_MODE_PASSTHRU;
             break;
-        case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH:
-            iface->data.network.actual->data.direct.mode = VIR_MACVTAP_MODE_PCI_PASSTHRU; //Check this SSHAH
+        case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID:
+            iface->data.network.actual->data.direct.mode = VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID; //Check this SSHAH
             break;
         }
 
@@ -2898,8 +2898,7 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
             int ii;
             virNetworkForwardIfDefPtr dev = NULL;
             unsigned int num_virt_fns = 0;
-            char **vfname = NULL;
-
+            
             /* pick an interface from the pool */
 
             /* PASSTHROUGH mode, and PRIVATE Mode + 802.1Qbh both require
@@ -2907,8 +2906,8 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
              * 0.  Other modes can share, so just search for the one with
              * the lowest usageCount.
              */
-            if ((netdef->forwardType == VIR_NETWORK_FORWARD_PASSTHROUGH) ||
-                (netdef->forwardType == VIR_NETWORK_FORWARD_PCI_PASSTHROUGH)) {
+            if (netdef->forwardType == VIR_NETWORK_FORWARD_PASSTHROUGH) {
+                char **vfname = NULL;
                 if ((netdef->nForwardPfs > 0) && (netdef->nForwardIfs <= 0)) {
                     if ((ifaceGetVirtualFunctions(netdef->forwardPfs->dev, 
                                                   &vfname, &num_virt_fns)) < 0){
@@ -2953,6 +2952,55 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
                         break;
                     }
                 }
+            }
+            
+            else if (netdef->forwardType == VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID) {
+                char **vf_pci_addr = NULL;
+                if ((netdef->nForwardPfs > 0) && (netdef->nForwardVfs <= 0)) {
+                    if ((ifaceGetVirtualFunctionsPCIAddr(netdef->forwardPfs->dev, 
+                                                         &vf_pci_addr, &num_virt_fns)) < 0){
+                        networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                           _("Could not get Virtual functions PCI addr on %s"),
+                                           netdef->forwardPfs->dev);
+                        goto here;
+                    }
+                    
+                    if (num_virt_fns == 0) {
+                        networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                           _("No Vf's present on SRIOV PF %s"),
+                                           netdef->forwardPfs->dev);
+                        goto here;
+                    }
+                    
+                    if ((VIR_ALLOC_N(netdef->forwardVfs, num_virt_fns)) < 0) {
+                        virReportOOMError();
+                        goto here;
+                    }
+                    
+                    netdef->nForwardVfs = num_virt_fns;
+                    
+                    for (ii = 0; ii < netdef->nForwardVfs; ii++) {
+                        netdef->forwardVfs[ii].pci_device_addr = strdup(vf_pci_addr[ii]);
+                        netdef->forwardVfs[ii].usageCount = 0;
+                    }
+                    
+                here:
+                    for (ii = 0; ii < num_virt_fns; ii++) {
+                        VIR_FREE(vf_pci_addr[ii]);
+                    }
+                    VIR_FREE(vf_pci_addr);
+                }
+                
+                /* pick first dev with 0 usageCount */
+                
+                
+                for (ii = 0; ii < netdef->nForwardVfs; ii++) {
+                    if (netdef->forwardVfs[ii].usageCount == 0) {
+                        iface->data.network.actual->data.direct.vf_pci_addr = strdup(netdef->forwardVfs[ii].pci_device_addr);
+                        dev = (virNetworkForwardIfDef *)&netdef->forwardPfs;
+                        break;
+                    }
+                } 
             }
             
             else if ((netdef->forwardType == VIR_NETWORK_FORWARD_PRIVATE) &&

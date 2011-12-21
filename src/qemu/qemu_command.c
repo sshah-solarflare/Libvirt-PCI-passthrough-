@@ -128,7 +128,7 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
         net->model && STREQ(net->model, "virtio"))
         vnet_hdr = 1;
 
-    if (virDomainNetGetActualDirectMode(net) == VIR_MACVTAP_MODE_PCI_PASSTHRU) {
+    if (virDomainNetGetActualDirectMode(net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID) {
         virDomainDevicePCIAddressPtr addr;
         if (VIR_ALLOC(dev) < 0) {
             virReportOOMError();
@@ -137,17 +137,15 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
             dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
             dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
             addr = &dev->source.subsys.u.pci;
-            if ((err = ifaceGetPciConfigAddress(virDomainNetGetActualDirectDev(net),
-                                               &addr->domain,
-                                               &addr->bus,
-                                               &addr->slot,
-                                                &addr->function)) < 0 ) {
+            if ((err = ifaceGetVfPCIAddr(virDomainNetGetActualVfPCIAddr(net),
+                                         &addr->domain,
+                                         &addr->bus,
+                                         &addr->slot,
+                                         &addr->function)) < 0 ) {
                 virReportSystemError(err,
                                      _("failed to get PCI device addr of '%s'"),
-                                     virDomainNetGetActualDirectDev(net)); 
+                                     virDomainNetGetActualVfPCIAddr(net)); 
             }
-            //Get pciDeviceAddress of linkdev and store it in &addr->domain
-            //&addr->bus &addr->slot &addr->function SSHAH
             if (VIR_REALLOC_N(def->hostdevs, def->nhostdevs+1) < 0) {
                 virReportOOMError();
                 VIR_FREE(dev);
@@ -162,6 +160,7 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
     rc = openMacvtapTap(net->ifname, net->mac,
                         virDomainNetGetActualDirectDev(net),
                         virDomainNetGetActualDirectMode(net),
+                        virDomainNetGetActualVfPCIAddr(net),
                         vnet_hdr, def->uuid,
                         virDomainNetGetActualDirectVirtPortProfile(net),
                         &res_ifname,

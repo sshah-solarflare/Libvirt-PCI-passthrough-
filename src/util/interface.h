@@ -84,6 +84,8 @@ int ifaceReplaceVfMacAddress(const unsigned char *macaddress,
 int ifaceRestoreMacAddress(const char *linkdev,
                            const char *stateDir);
 
+int ifaceRestoreVfMacAddress(const char *vf_pci_addr);
+
 int ifaceIsVirtualFunction(const char *ifname);
 
 int ifaceGetVirtualFunctionIndex(const char *pfname, const char *vfname,

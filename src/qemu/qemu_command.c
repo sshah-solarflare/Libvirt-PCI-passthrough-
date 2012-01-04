@@ -122,11 +122,15 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
     char *res_ifname = NULL;
     int vnet_hdr = 0;
     virDomainHostdevDefPtr dev;
+    virDomainObjPtr vm = NULL;
     int err;
 
     if (qemuCapsGet(qemuCaps, QEMU_CAPS_VNET_HDR) &&
         net->model && STREQ(net->model, "virtio"))
         vnet_hdr = 1;
+
+    vm = virDomainAssignDef(driver->caps, &driver->domains,
+                            def, false);
 
     if (virDomainNetGetActualDirectMode(net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID) {
         virDomainDevicePCIAddressPtr addr;
@@ -185,11 +189,13 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
             err = virDomainConfNWFilterInstantiate(conn, net);
             if (err) {
                 VIR_FORCE_CLOSE(rc);
-                delMacvtap(net->ifname, net->mac,
+                qemuPhysIfaceDisconnect(vm, driver, net);
+/*                delMacvtap(net->ifname, net->mac,
                            virDomainNetGetActualDirectDev(net),
+                           virDomainNetGetActualVfPCIAddr(net),
                            virDomainNetGetActualDirectMode(net),
                            virDomainNetGetActualDirectVirtPortProfile(net),
-                           driver->stateDir);
+                           driver->stateDir); SSHAH*/
                 VIR_FREE(net->ifname);
             }
         }
@@ -208,6 +214,46 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
     return rc;
 }
 
+int 
+qemuPhysIfaceDisconnect(virDomainObjPtr vm,
+                        struct qemud_driver *driver,
+                        virDomainNetDefPtr net)
+{
+    int err;
+    int rc;
+#if WITH_MACVTAP
+    if (virDomainNetGetActualDirectMode(net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID) {
+        virDomainDeviceDef device;
+        virDomainHostdevDef dev;
+        virDomainDevicePCIAddressPtr addr;
+
+        dev.mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
+        dev.source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+        addr = &dev.source.subsys.u.pci;
+        if ((err = ifaceGetVfPCIAddr(virDomainNetGetActualVfPCIAddr(net),
+                                     &addr->domain,
+                                     &addr->bus,
+                                     &addr->slot,
+                                     &addr->function)) < 0 ) {
+            virReportSystemError(err,
+                                 _("failed to get PCI device addr of '%s'"),
+                                 virDomainNetGetActualVfPCIAddr(net)); 
+        }
+        
+        device.type = VIR_DOMAIN_DEVICE_HOSTDEV;
+        device.data.hostdev = &dev;
+        rc = qemuDomainDetachHostDevice(driver, vm, &device);
+    }
+    
+    delMacvtap(net->ifname, net->mac,
+               virDomainNetGetActualDirectDev(net),
+               virDomainNetGetActualVfPCIAddr(net),
+               virDomainNetGetActualDirectMode(net),
+               virDomainNetGetActualDirectVirtPortProfile(net),
+               driver->stateDir);
+#endif
+    return rc; 
+}
 
 int
 qemuNetworkIfaceConnect(virDomainDefPtr def,

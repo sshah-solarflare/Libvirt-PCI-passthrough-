@@ -70,6 +70,7 @@ int openMacvtapTap(const char *ifname,
 void delMacvtap(const char *ifname,
                 const unsigned char *macaddress,
                 const char *linkdev,
+                const char *vf_pci_addr,
                 int mode,
                 virVirtualPortProfileParamsPtr virtPortProfile,
                 char *stateDir);

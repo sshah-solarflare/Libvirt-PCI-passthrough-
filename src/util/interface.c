@@ -1178,7 +1178,6 @@ out:
     return rc;
 }
 
-
 /**
  * ifaceRestoreMacAddress:
  * @linkdev: name of interface
@@ -1229,6 +1228,42 @@ ifaceRestoreMacAddress(const char *linkdev,
     ignore_value(unlink(path));
     VIR_FREE(macstr);
 
+    return rc;
+}
+
+/**
+ * ifaceRestoreVfMacAddress:
+ * @vf_pci_addr: BDF of the PCI Function in a %.4x:%.2x:%.2x.%.1x format 
+ *
+ * Returns 0 on success, -errno on failure
+ *
+ */
+
+int 
+ifaceRestoreVfMacAddress(const char *vf_pci_addr)
+{
+    int rc = -1, i;
+    char *pci_sysfs_device_link = NULL;
+    char macstr[VIR_MAC_STRING_BUFLEN];
+    const char *file = "mac_addr";
+    unsigned char macaddress[VIR_MAC_BUFLEN];
+
+    for (i = 0; i < VIR_MAC_BUFLEN; i++)
+    {
+        macaddress[i] = 0;
+    }
+    
+    if (pciSysfsDeviceFile(&pci_sysfs_device_link, vf_pci_addr, file) < 0) {
+        virReportSystemError(ENOSYS, "%s",
+                             _("Failed to get PCI SYSFS file"));
+        goto out;
+    }
+    virFormatMacAddr(macaddress, macstr);
+    
+    rc = virFileWriteStr(pci_sysfs_device_link, macstr, 0);
+
+out:
+    VIR_FREE(pci_sysfs_device_link);
     return rc;
 }
 

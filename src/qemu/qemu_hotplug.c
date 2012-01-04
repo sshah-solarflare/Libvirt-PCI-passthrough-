@@ -1680,11 +1680,13 @@ int qemuDomainDetachNetDevice(struct qemud_driver *driver,
 
 #if WITH_MACVTAP
     if (virDomainNetGetActualType(detach) == VIR_DOMAIN_NET_TYPE_DIRECT) {
-        delMacvtap(detach->ifname, detach->mac,
+        qemuPhysIfaceDisconnect(vm, driver, detach);
+        /*delMacvtap(detach->ifname, detach->mac,
                    virDomainNetGetActualDirectDev(detach),
+                   virDomainNetGetActualVfPCIAddr(detach),
                    virDomainNetGetActualDirectMode(detach),
                    virDomainNetGetActualDirectVirtPortProfile(detach),
-                   driver->stateDir);
+                   driver->stateDir); SSHAH*/
         VIR_FREE(detach->ifname);
     }
 #endif

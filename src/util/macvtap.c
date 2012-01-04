@@ -414,12 +414,17 @@ void
 delMacvtap(const char *ifname,
            const unsigned char *macaddr,
            const char *linkdev,
+           const char *vf_pci_addr,
            int mode,
            virVirtualPortProfileParamsPtr virtPortProfile,
            char *stateDir)
 {
     if (mode == VIR_MACVTAP_MODE_PASSTHRU) {
         ifaceRestoreMacAddress(linkdev, stateDir);
+    }
+    
+    if (mode == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID) {
+        ifaceRestoreVfMacAddress(vf_pci_addr);
     }
 
     if (ifname) {

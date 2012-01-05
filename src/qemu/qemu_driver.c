@@ -4988,6 +4988,79 @@ qemudDomainUndefine(virDomainPtr dom)
     return qemuDomainUndefineFlags(dom, 0);
 }
 
+static void
+qemuVfHotplugAttachLive(struct qemud_driver *driver,
+                        virDomainObjPtr vm,
+                        virDomainNetDefPtr net)
+{
+    virDomainHostdevDefPtr dev;
+    virDomainDevicePCIAddressPtr addr;
+    int ret;
+    
+    if (virDomainNetGetActualVfPCIAddr(net) != NULL) {
+        if (VIR_ALLOC(dev) < 0) {
+            virReportOOMError();
+        } 
+        else {
+            dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
+            dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+            dev->managed = 1;
+            addr = &dev->source.subsys.u.pci;
+            if (ifaceGetVfPCIAddr(virDomainNetGetActualVfPCIAddr(net),
+                                         &addr->domain,
+                                         &addr->bus,
+                                         &addr->slot,
+                                         &addr->function) < 0 ) {
+                qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                                _("failed to get PCI device addr of '%s'"),
+                                virDomainNetGetActualVfPCIAddr(net)); 
+            }
+            ret = qemuDomainAttachHostDevice(driver, vm, dev);
+            if (ret) {
+                qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                                _("Could not hotplug Hostdev"));
+                VIR_FREE(dev);
+            }
+        }
+    }
+}
+
+static void 
+qemuVfHotplugDetachLive(struct qemud_driver *driver,
+                        virDomainObjPtr vm,
+                        virDomainNetDefPtr net,
+                        virDomainDefPtr def)
+{
+    virDomainDeviceDef device;
+    virDomainDevicePCIAddress addr;
+    unsigned int i = 0;
+    
+    if (ifaceGetVfPCIAddr(virDomainNetGetActualVfPCIAddr(net),
+                          &addr.domain,
+                          &addr.bus,
+                          &addr.slot,
+                          &addr.function) < 0 ) {
+        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                        _("failed to get PCI device addr of '%s'"),
+                        virDomainNetGetActualVfPCIAddr(net));
+    }
+    i = 0;
+    while (i < def->nhostdevs) {
+        device.type = VIR_DOMAIN_DEVICE_HOSTDEV;
+        device.data.hostdev = def->hostdevs[i];
+        if(device.data.hostdev->source.subsys.u.pci.domain == addr.domain && 
+           device.data.hostdev->source.subsys.u.pci.bus == addr.bus &&
+           device.data.hostdev->source.subsys.u.pci.slot == addr.slot &&
+           device.data.hostdev->source.subsys.u.pci.function == addr.function) {
+            qemuDomainDetachHostDevice(driver, vm, &device);
+            break;
+        }
+        else
+            i++;
+    }
+}
+
+
 static int
 qemuDomainAttachDeviceDiskLive(struct qemud_driver *driver,
                                virDomainObjPtr vm,
@@ -5104,6 +5177,11 @@ qemuDomainAttachDeviceLive(virDomainObjPtr vm,
         qemuDomainObjCheckNetTaint(driver, vm, dev->data.net, -1);
         ret = qemuDomainAttachNetDevice(dom->conn, driver, vm,
                                         dev->data.net);
+        if (ret == 0) {
+            if ((virDomainNetGetActualType(dev->data.net) == VIR_DOMAIN_NET_TYPE_DIRECT) &&
+                (virDomainNetGetDirectMode(dev->data.net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)) 
+                qemuVfHotplugAttachLive(driver, vm, dev->data.net);
+        }
         if (!ret)
             dev->data.net = NULL;
         break;
@@ -5193,6 +5271,9 @@ qemuDomainDetachDeviceLive(virDomainObjPtr vm,
         ret = qemuDomainDetachLease(driver, vm, dev->data.lease);
         break;
     case VIR_DOMAIN_DEVICE_NET:
+        if ((virDomainNetGetActualType(dev->data.net) == VIR_DOMAIN_NET_TYPE_DIRECT) &&
+            (virDomainNetGetDirectMode(dev->data.net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)) 
+            qemuVfHotplugDetachLive(driver, vm, dev->data.net, vm->def);
         ret = qemuDomainDetachNetDevice(driver, vm, dev);
         break;
     case VIR_DOMAIN_DEVICE_HOSTDEV:

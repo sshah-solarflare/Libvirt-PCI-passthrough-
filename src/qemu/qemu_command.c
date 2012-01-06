@@ -127,6 +127,10 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
         net->model && STREQ(net->model, "virtio"))
         vnet_hdr = 1;
 
+    err = ifaceAddRemoveSfcPeerDevice(virDomainNetGetActualDirectDev(net),
+                                      net->mac,
+                                      true);
+  
     rc = openMacvtapTap(net->ifname, net->mac,
                         virDomainNetGetActualDirectDev(net),
                         virDomainNetGetActualDirectMode(net),
@@ -145,7 +149,7 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
     if (rc >=0 && driver->macFilter) {
         if ((err = networkAllowMacOnPort(driver, net->ifname, net->mac))) {
             virReportSystemError(err,
-                 _("failed to add ebtables rule to allow MAC address on  '%s'"),
+                                 _("failed to add ebtables rule to allow MAC address on  '%s'"),
                                  net->ifname);
         }
     }
@@ -180,8 +184,10 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
 }
 
 void 
-qemuPhysIfaceDisconnect(virDomainNetDefPtr net)
+qemuPhysIfaceDisconnect(struct qemud_driver *driver,
+                        virDomainNetDefPtr net)
 {
+    int err;
 #if WITH_MACVTAP
     
     delMacvtap(net->ifname, net->mac,
@@ -190,6 +196,9 @@ qemuPhysIfaceDisconnect(virDomainNetDefPtr net)
                virDomainNetGetActualDirectMode(net),
                virDomainNetGetActualDirectVirtPortProfile(net),
                driver->stateDir);
+    err = ifaceAddRemoveSfcPeerDevice(virDomainNetGetActualDirectDev(net),
+                                      net->mac,
+                                      false);
 #endif
 }
 

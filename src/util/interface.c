@@ -1337,6 +1337,49 @@ out:
 }
 
 /*
+ * ifaceAddRemoveSfcPeerDevice:
+ *
+ * @pfname : name of the physical function interface 
+ * @mac: pointer to the mac address of the new virtual interface
+ * @add: Boolean flag to indicate whether we want to add or remove the 
+ *       mac address from the local_addrs
+ *
+ * Returns 0 on success and -1 on failure
+ */
+
+int
+ifaceAddRemoveSfcPeerDevice(const char *pfname,
+                            const unsigned char *mac,
+                            bool add)
+{
+    int ret = -1, rc;
+    char *pf_sysfs_device_link = NULL;
+    char *line;
+
+    if (ifaceSysfsDeviceFile(&pf_sysfs_device_link, pfname, "local_addrs"))
+        return ret;
+
+    if (VIR_ALLOC_N(line, VIR_MAC_STRING_BUFLEN + 1) < 0) {
+        VIR_FREE(pf_sysfs_device_link);
+        virReportOOMError();
+        return ret;
+    }
+    
+    line[0] = add ? '+' : '-';
+    virFormatMacAddr(mac, line + 1);
+    rc = virFileWriteStr(pf_sysfs_device_link, line, 0);
+    if (rc == -1 && errno != ENOENT) {
+        VIR_WARN("Failed to write '%s' to '%s': %s",
+                 line, pf_sysfs_device_link, strerror(errno));
+    }
+
+    ret = 0;
+    VIR_FREE(pf_sysfs_device_link);
+    VIR_FREE(line);
+    return ret;
+}
+
+/*
  * ifaceGetVirtualFunctionsPCIAddr:
  *
  * @pfname : name of the physical function interface 

@@ -72,6 +72,7 @@
 #include "domain_audit.h"
 #include "node_device_conf.h"
 #include "pci.h"
+#include "interface.h"
 #include "hostusb.h"
 #include "processinfo.h"
 #include "libvirt_internal.h"
@@ -5179,7 +5180,7 @@ qemuDomainAttachDeviceLive(virDomainObjPtr vm,
                                         dev->data.net);
         if (ret == 0) {
             if ((virDomainNetGetActualType(dev->data.net) == VIR_DOMAIN_NET_TYPE_DIRECT) &&
-                (virDomainNetGetDirectMode(dev->data.net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)) 
+                (virDomainNetGetActualDirectMode(dev->data.net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)) 
                 qemuVfHotplugAttachLive(driver, vm, dev->data.net);
         }
         if (!ret)
@@ -5272,7 +5273,7 @@ qemuDomainDetachDeviceLive(virDomainObjPtr vm,
         break;
     case VIR_DOMAIN_DEVICE_NET:
         if ((virDomainNetGetActualType(dev->data.net) == VIR_DOMAIN_NET_TYPE_DIRECT) &&
-            (virDomainNetGetDirectMode(dev->data.net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)) 
+            (virDomainNetGetActualDirectMode(dev->data.net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)) 
             qemuVfHotplugDetachLive(driver, vm, dev->data.net, vm->def);
         ret = qemuDomainDetachNetDevice(driver, vm, dev);
         break;

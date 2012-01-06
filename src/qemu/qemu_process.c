@@ -60,6 +60,7 @@
 #include "locking/domain_lock.h"
 #include "network/bridge_driver.h"
 #include "uuid.h"
+#include "interface.h"
 
 #define VIR_FROM_THIS VIR_FROM_QEMU
 
@@ -2775,9 +2776,8 @@ qemuProcessReconnectAll(virConnectPtr conn, struct qemud_driver *driver)
 }
 
 static void 
-qemuVfHotplugAddHostdev(virDomainObjPtr vm,
-                                    virDomainNetDefPtr net,
-                                    virDomainDefPtr def)
+qemuVfHotplugAddHostdev(virDomainNetDefPtr net,
+                        virDomainDefPtr def)
 {
     virDomainHostdevDefPtr dev;
     virDomainDevicePCIAddressPtr addr;
@@ -2791,11 +2791,11 @@ qemuVfHotplugAddHostdev(virDomainObjPtr vm,
             dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
             dev->managed = 1;
             addr = &dev->source.subsys.u.pci;
-            if ((err = ifaceGetVfPCIAddr(virDomainNetGetActualVfPCIAddr(net),
+            if (ifaceGetVfPCIAddr(virDomainNetGetActualVfPCIAddr(net),
                                          &addr->domain,
                                          &addr->bus,
                                          &addr->slot,
-                                         &addr->function)) < 0 ) {
+                                         &addr->function) < 0 ) {
                 qemuReportError(VIR_ERR_INTERNAL_ERROR,
                                 _("failed to get PCI device addr of '%s'"),
                                 virDomainNetGetActualVfPCIAddr(net)); 
@@ -3029,10 +3029,10 @@ int qemuProcessStart(virConnectPtr conn,
 
     for (i = 0; i < vm->def->nnets; i++)
     {
-        virDomainNetDefPtr net = vm->def->nnets[i];
+        virDomainNetDefPtr net = vm->def->nets[i];
         if ((virDomainNetGetActualType(net) == VIR_DOMAIN_NET_TYPE_DIRECT) &&
-            (virDomainNetGetDirectMode(net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID))
-            qemuVfHotplugAddHostdev(vm, net, vm->def);
+            (virDomainNetGetActualDirectMode(net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID))
+            qemuVfHotplugAddHostdev(net, vm->def);
     }
 
     /* now that we know it is about to start call the hook if present */
@@ -3412,7 +3412,7 @@ void qemuProcessStop(struct qemud_driver *driver,
         virDomainNetDefPtr net = def->nets[i];
 #if WITH_MACVTAP
         if (virDomainNetGetActualType(net) == VIR_DOMAIN_NET_TYPE_DIRECT) {
-            qemuPhysIfaceDisconnect(net);
+            qemuPhysIfaceDisconnect(driver, net);
             VIR_FREE(net->ifname);
         }
 #endif

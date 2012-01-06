@@ -107,4 +107,8 @@ int ifaceGetVfPCIAddr(const char *vf_pci_addr,
                       unsigned int *slot,
                       unsigned int *function);
 
+int ifaceAddRemoveSfcPeerDevice(const char *pfname,
+                                const unsigned char *mac,
+                                bool add);
+
 #endif /* __VIR_INTERFACE_H__ */

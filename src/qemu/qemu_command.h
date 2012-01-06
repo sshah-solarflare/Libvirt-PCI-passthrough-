@@ -132,7 +132,8 @@ int qemuPhysIfaceConnect(virDomainDefPtr def,
                          virBitmapPtr qemuCaps,
                          enum virVMOperationType vmop);
 
-void qemuPhysIfaceDisconnect(virDomainNetDefPtr net);
+void qemuPhysIfaceDisconnect(struct qemud_driver *driver,
+                             virDomainNetDefPtr net);
 
 int qemuOpenVhostNet(virDomainDefPtr def,
                      virDomainNetDefPtr net,

@@ -918,6 +918,7 @@ struct _virDomainHostdevDef {
     int bootIndex;
     virDomainDeviceInfo info; /* Guest address */
     int rombar;               /* enum virDomainPciRombarMode */
+    bool ephemeral;
 };
 
 

@@ -2790,6 +2790,7 @@ qemuVfHotplugAddHostdev(virDomainNetDefPtr net,
             dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
             dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
             dev->managed = 1;
+            dev->ephemeral = true;
             addr = &dev->source.subsys.u.pci;
             if (ifaceGetVfPCIAddr(virDomainNetGetActualVfPCIAddr(net),
                                          &addr->domain,

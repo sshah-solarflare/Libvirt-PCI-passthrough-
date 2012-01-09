@@ -4097,7 +4097,8 @@ virDomainMigrateVersion2 (virDomainPtr domain,
     }
     dom_xml = domain->conn->driver->domainGetXMLDesc(domain,
                                                      VIR_DOMAIN_XML_SECURE |
-                                                     VIR_DOMAIN_XML_UPDATE_CPU);
+                                                     VIR_DOMAIN_XML_UPDATE_CPU |
+                                                     VIR_DOMAIN_XML_NO_EPHEMERAL_DEVICES);
     if (!dom_xml)
         return NULL;
 

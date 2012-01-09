@@ -2957,6 +2957,7 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
             else if (netdef->forwardType == VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID) {
                 char **vf_pci_addr = NULL;
                 if ((netdef->nForwardPfs > 0) && (netdef->nForwardVfs <= 0)) {
+                    VIR_DEBUG("SSHAH:Collecting Virtual Functions");
                     if ((ifaceGetVirtualFunctionsPCIAddr(netdef->forwardPfs->dev, 
                                                          &vf_pci_addr, &num_virt_fns)) < 0){
                         networkReportError(VIR_ERR_INTERNAL_ERROR,
@@ -2997,7 +2998,8 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
                 for (ii = 0; ii < netdef->nForwardVfs; ii++) {
                     if (netdef->forwardVfs[ii].usageCount == 0) {
                         iface->data.network.actual->data.direct.vf_pci_addr = strdup(netdef->forwardVfs[ii].pci_device_addr);
-                        dev = (virNetworkForwardIfDef *)&netdef->forwardPfs;
+                        netdef->forwardVfs[ii].usageCount++; 
+                        dev = (virNetworkForwardIfDef *)&netdef->forwardPfs[0];
                         break;
                     }
                 } 
@@ -3072,6 +3074,7 @@ networkNotifyActualDevice(virDomainNetDefPtr iface)
     virNetworkObjPtr network;
     virNetworkDefPtr netdef;
     char *actualDev;
+    char *vf_pci_addr;
     int ret = -1;
 
     if (iface->type != VIR_DOMAIN_NET_TYPE_NETWORK)
@@ -3101,7 +3104,7 @@ networkNotifyActualDevice(virDomainNetDefPtr iface)
         }
 
     netdef = network->def;
-    if (netdef->nForwardIfs == 0) {
+    if ((netdef->nForwardIfs == 0) && (netdef->nForwardPfs == 0)) {
         networkReportError(VIR_ERR_INTERNAL_ERROR,
                            _("network '%s' uses a direct mode, but has no forward dev and no interface pool"),
                            netdef->name);
@@ -3112,10 +3115,20 @@ networkNotifyActualDevice(virDomainNetDefPtr iface)
 
         /* find the matching interface in the pool and increment its usageCount */
 
-        for (ii = 0; ii < netdef->nForwardIfs; ii++) {
-            if (STREQ(actualDev, netdef->forwardIfs[ii].dev)) {
-                dev = &netdef->forwardIfs[ii];
-                break;
+        if (netdef->nForwardIfs > 0) {
+            for (ii = 0; ii < netdef->nForwardIfs; ii++) {
+                if (STREQ(actualDev, netdef->forwardIfs[ii].dev)) {
+                    dev = &netdef->forwardIfs[ii];
+                    break;
+                }
+            }
+        }
+        else if (netdef->nForwardPfs > 0) {
+            for (ii = 0; ii < netdef->nForwardPfs; ii++) {
+                if (STREQ(actualDev, netdef->forwardPfs[ii].dev)) {
+                    dev = (virNetworkForwardIfDef *)&netdef->forwardPfs[ii];
+                    break;
+                }
             }
         }
         /* dev points at the physical device we want to use */
@@ -3140,6 +3153,44 @@ networkNotifyActualDevice(virDomainNetDefPtr iface)
                                _("network '%s' claims dev='%s' is already in use by a different domain"),
                                netdef->name, actualDev);
             goto cleanup;
+        }
+
+        if (netdef->forwardType == VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID) {
+             vf_pci_addr = virDomainNetGetActualVfPCIAddr(iface);
+
+             if (!vf_pci_addr) {
+                 networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                    "%s", _("the interface uses pci_passthrough_hybrid mode but has not VF allocated"));
+                 goto cleanup;
+             }
+             else {
+                 int jj;
+                 virNetworkForwardVfDefPtr vf = NULL;
+
+                 for (jj = 0; jj < netdef->nForwardVfs; i++) {
+                     if (STREQ(vf_pci_addr, netdef->forwardVfs[ii].pci_device_addr)) {
+                         vf = &netdef->forwardVfs[ii];
+                         break;
+                     }
+                 }
+                 if (!vf) {
+                     networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                        _("network '%s' doesn't have vf='%s' in use by domain"),
+                                        netdef->name, vf_pci_addr);
+                     goto cleanup; 
+                 }
+
+                 if (vf->usageCount > 0) {
+                     networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                        _("network '%s' claims vf='%s' is already in use by a different domain"),
+                                        netdef->name, vf_pci_addr);
+                     goto cleanup;
+                 }
+                 
+                 vf->usageCount++;
+                 VIR_DEBUG("Using Vf %s, usageCount %d",
+                           vf->pci_device_addr, vf->usageCount);
+             }
         }
         /* we are now assured of success, so mark the allocation */
         dev->usageCount++;
@@ -3172,6 +3223,7 @@ networkReleaseActualDevice(virDomainNetDefPtr iface)
     virNetworkObjPtr network = NULL;
     virNetworkDefPtr netdef;
     char *actualDev;
+    char *vf_pci_addr;
     int ret = -1;
 
     if (iface->type != VIR_DOMAIN_NET_TYPE_NETWORK)
@@ -3202,7 +3254,7 @@ networkReleaseActualDevice(virDomainNetDefPtr iface)
         }
 
     netdef = network->def;
-    if (netdef->nForwardIfs == 0) {
+    if ((netdef->nForwardIfs == 0) && (netdef->nForwardPfs == 0)) {
         networkReportError(VIR_ERR_INTERNAL_ERROR,
                            _("network '%s' uses a direct mode, but has no forward dev and no interface pool"),
                            netdef->name);
@@ -3211,10 +3263,20 @@ networkReleaseActualDevice(virDomainNetDefPtr iface)
         int ii;
         virNetworkForwardIfDefPtr dev = NULL;
 
-        for (ii = 0; ii < netdef->nForwardIfs; ii++) {
-            if (STREQ(actualDev, netdef->forwardIfs[ii].dev)) {
-                dev = &netdef->forwardIfs[ii];
-                break;
+        if (netdef->nForwardIfs > 0) {
+            for (ii = 0; ii < netdef->nForwardIfs; ii++) {
+                if (STREQ(actualDev, netdef->forwardIfs[ii].dev)) {
+                    dev = &netdef->forwardIfs[ii];
+                    break;
+                }
+            }
+        }
+        else if (netdef->nForwardPfs > 0) {
+            for (ii = 0; ii < netdef->nForwardPfs; ii++) {
+                if (STREQ(actualDev, netdef->forwardPfs[ii].dev)) {
+                    dev = (virNetworkForwardIfDef *)&netdef->forwardPfs[ii];
+                    break;
+                }
             }
         }
         /* dev points at the physical device we've been using */
@@ -3223,6 +3285,36 @@ networkReleaseActualDevice(virDomainNetDefPtr iface)
                                _("network '%s' doesn't have dev='%s' in use by domain"),
                                netdef->name, actualDev);
             goto cleanup;
+        }
+        
+        if (netdef->forwardType == VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID) {
+             vf_pci_addr = virDomainNetGetActualVfPCIAddr(iface);
+
+             if (!vf_pci_addr) {
+                 networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                    "%s", _("the interface uses pci_passthrough_hybrid mode but has not VF allocated"));
+                 goto cleanup;
+             }
+             else {
+                 int jj;
+                 virNetworkForwardVfDefPtr vf = NULL;
+                 
+                 for (jj = 0; jj < netdef->nForwardVfs; i++) {
+                     if (STREQ(vf_pci_addr, netdef->forwardVfs[ii].pci_device_addr)) {
+                         vf = &netdef->forwardVfs[ii];
+                         break;
+                     }
+                 }
+                 if (!vf) {
+                     networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                        _("network '%s' doesn't have vf='%s' in use by domain"),
+                                        netdef->name, vf_pci_addr);
+                     goto cleanup; 
+                 }
+                 vf->usageCount--;
+                 VIR_DEBUG("Releasing vf device %s, usageCount %d",
+                           vf->pci_device_addr, vf->usageCount);
+             }
         }
 
         dev->usageCount--;

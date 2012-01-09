@@ -5021,6 +5021,7 @@ qemuVfHotplugAttachLive(struct qemud_driver *driver,
                 qemuReportError(VIR_ERR_INTERNAL_ERROR,
                                 _("Could not hotplug Hostdev"));
                 VIR_FREE(dev);
+                //may be required to use networkReleaseActualDevice SSHAH
             }
         }
     }
@@ -5182,6 +5183,7 @@ qemuDomainAttachDeviceLive(virDomainObjPtr vm,
             if ((virDomainNetGetActualType(dev->data.net) == VIR_DOMAIN_NET_TYPE_DIRECT) &&
                 (virDomainNetGetActualDirectMode(dev->data.net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)) 
                 qemuVfHotplugAttachLive(driver, vm, dev->data.net);
+            dev->data.net = NULL;
         }
         if (!ret)
             dev->data.net = NULL;

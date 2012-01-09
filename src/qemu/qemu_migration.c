@@ -784,6 +784,7 @@ qemuMigrationIsAllowed(struct qemud_driver *driver, virDomainObjPtr vm,
                        virDomainDefPtr def)
 {
     int nsnapshots;
+    unsigned int i;
 
     if (vm) {
         if (qemuProcessAutoDestroyActive(driver, vm)) {
@@ -800,10 +801,12 @@ qemuMigrationIsAllowed(struct qemud_driver *driver, virDomainObjPtr vm,
 
         def = vm->def;
     }
-    if (def->nhostdevs > 0) {
-        qemuReportError(VIR_ERR_OPERATION_INVALID,
-            "%s", _("Domain with assigned host devices cannot be migrated"));
-        return false;
+    for (i = 0; i < def->nhostdevs; i++) {
+        if (!def->hostdevs[i]->ephemeral) {
+            qemuReportError(VIR_ERR_OPERATION_INVALID,
+                            "%s", _("Domain with assigned host devices cannot be migrated"));
+            return false;
+        }
     }
 
     return true;
@@ -987,6 +990,30 @@ qemuDomainMigrateGraphicsRelocate(struct qemud_driver *driver,
 
     return ret;
 }
+
+static void qemuMigrationRemoveEphemeralDevices(struct qemud_driver *driver,
+                                                virDomainObjPtr vm)
+{
+    virDomainHostdevDefPtr dev;
+    virDomainDeviceDef def;
+    unsigned int i;
+
+    i = 0;
+    while (i < vm->def->nhostdevs) {
+        dev = vm->def->hostdevs[i];
+        if (dev->ephemeral) {
+             def.type = VIR_DOMAIN_DEVICE_HOSTDEV;
+             def.data.hostdev = dev;
+
+             if (qemuDomainDetachHostDevice(driver, vm, &def) >= 0) {
+                 /* nohostdevs has been reduced */
+                 continue;
+             }
+        }
+        i++;
+    }
+}
+
 
 
 /* The caller is supposed to lock the vm and start a migration job. */
@@ -1692,6 +1719,8 @@ static int doNativeMigrate(struct qemud_driver *driver,
               driver, vm, uri, NULLSTR(cookiein), cookieinlen,
               cookieout, cookieoutlen, flags, resource);
 
+    qemuMigrationRemoveEphemeralDevices(driver, vm);
+
     if (STRPREFIX(uri, "tcp:") && !STRPREFIX(uri, "tcp://")) {
         /* HACK: source host generates bogus URIs, so fix them up */
         if (virAsprintf(&tmp, "tcp://%s", uri + strlen("tcp:")) < 0) {
@@ -1777,6 +1806,8 @@ static int doTunnelMigrate(struct qemud_driver *driver,
                         _("Source qemu is too old to support tunnelled migration"));
         return -1;
     }
+
+    qemuMigrationRemoveEphemeralDevices(driver, vm);
 
     spec.fwdType = MIGRATION_FWD_STREAM;
     spec.fwd.stream = st;

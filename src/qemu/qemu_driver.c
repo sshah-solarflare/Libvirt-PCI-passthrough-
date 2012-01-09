@@ -5009,10 +5009,10 @@ qemuVfHotplugAttachLive(struct qemud_driver *driver,
             dev->ephemeral = true;
             addr = &dev->source.subsys.u.pci;
             if (ifaceGetVfPCIAddr(virDomainNetGetActualVfPCIAddr(net),
-                                         &addr->domain,
-                                         &addr->bus,
-                                         &addr->slot,
-                                         &addr->function) < 0 ) {
+                                  &addr->domain,
+                                  &addr->bus,
+                                  &addr->slot,
+                                  &addr->function) < 0 ) {
                 qemuReportError(VIR_ERR_INTERNAL_ERROR,
                                 _("failed to get PCI device addr of '%s'"),
                                 virDomainNetGetActualVfPCIAddr(net)); 

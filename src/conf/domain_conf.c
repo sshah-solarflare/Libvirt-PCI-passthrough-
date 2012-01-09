@@ -10456,9 +10456,13 @@ virDomainDefFormatInternal(virDomainDefPtr def,
         if (virDomainVideoDefFormat(buf, def->videos[n], flags) < 0)
             goto cleanup;
 
-    for (n = 0 ; n < def->nhostdevs ; n++)
+    for (n = 0 ; n < def->nhostdevs ; n++) {
+        if ((flags & VIR_DOMAIN_XML_NO_EPHEMERAL_DEVICES) != 0 &&
+            def->hostdevs[n]->ephemeral)
+            continue;
         if (virDomainHostdevDefFormat(buf, def->hostdevs[n], flags) < 0)
             goto cleanup;
+    }
 
     if (def->watchdog)
         virDomainWatchdogDefFormat (buf, def->watchdog, flags);

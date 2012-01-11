@@ -60,7 +60,6 @@
 #include "locking/domain_lock.h"
 #include "network/bridge_driver.h"
 #include "uuid.h"
-#include "interface.h"
 
 #define VIR_FROM_THIS VIR_FROM_QEMU
 
@@ -2775,44 +2774,6 @@ qemuProcessReconnectAll(virConnectPtr conn, struct qemud_driver *driver)
     virHashForEach(driver->domains.objs, qemuProcessReconnectHelper, &data);
 }
 
-static void 
-qemuVfHotplugAddHostdev(virDomainNetDefPtr net,
-                        virDomainDefPtr def)
-{
-    virDomainHostdevDefPtr dev;
-    virDomainDevicePCIAddressPtr addr;
-    
-    if (virDomainNetGetActualVfPCIAddr(net) != NULL) {
-        if (VIR_ALLOC(dev) < 0) {
-            virReportOOMError();
-        } 
-        else {
-            dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
-            dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
-            dev->managed = 1;
-            dev->ephemeral = true;
-            addr = &dev->source.subsys.u.pci;
-            if (ifaceGetVfPCIAddr(virDomainNetGetActualVfPCIAddr(net),
-                                         &addr->domain,
-                                         &addr->bus,
-                                         &addr->slot,
-                                         &addr->function) < 0 ) {
-                qemuReportError(VIR_ERR_INTERNAL_ERROR,
-                                _("failed to get PCI device addr of '%s'"),
-                                virDomainNetGetActualVfPCIAddr(net)); 
-            }
-            if (VIR_REALLOC_N(def->hostdevs, def->nhostdevs+1) < 0) {
-                virReportOOMError();
-                VIR_FREE(dev);
-            } 
-            else {
-                def->hostdevs[def->nhostdevs] = dev;
-                def->nhostdevs++;
-            }
-        }
-    }
-}
-
 int qemuProcessStart(virConnectPtr conn,
                      struct qemud_driver *driver,
                      virDomainObjPtr vm,
@@ -2833,7 +2794,6 @@ int qemuProcessStart(virConnectPtr conn,
     virCommandPtr cmd = NULL;
     struct qemuProcessHookData hookData;
     unsigned long cur_balloon;
-    unsigned int i;
 
     hookData.conn = conn;
     hookData.vm = vm;
@@ -3028,13 +2988,13 @@ int qemuProcessStart(virConnectPtr conn,
                                      migrateFrom, stdin_fd, snapshot, vmop)))
         goto cleanup;
 
-    for (i = 0; i < vm->def->nnets; i++)
+/*    for (i = 0; i < vm->def->nnets; i++)
     {
         virDomainNetDefPtr net = vm->def->nets[i];
         if ((virDomainNetGetActualType(net) == VIR_DOMAIN_NET_TYPE_DIRECT) &&
             (virDomainNetGetActualDirectMode(net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID))
             qemuVfHotplugAddHostdev(net, vm->def);
-    }
+            }*/
 
     /* now that we know it is about to start call the hook if present */
     if (virHookPresent(VIR_HOOK_DRIVER_QEMU)) {

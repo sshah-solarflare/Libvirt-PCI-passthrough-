@@ -1371,7 +1371,7 @@ char *virNetworkDefFormat(const virNetworkDefPtr def, unsigned int flags)
         if (dev)
             virBufferEscapeString(&buf, " dev='%s'", dev);
         virBufferAsprintf(&buf, " mode='%s'%s>\n", mode,
-                          def->nForwardIfs ? "" : "/");
+                          (def->nForwardIfs || def->nForwardPfs) ? "" : "/");
 
         
         if (def->nForwardPfs) {

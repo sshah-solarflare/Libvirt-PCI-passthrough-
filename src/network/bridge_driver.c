@@ -3000,6 +3000,9 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
                         iface->data.network.actual->data.direct.vf_pci_addr = strdup(netdef->forwardVfs[ii].pci_device_addr);
                         netdef->forwardVfs[ii].usageCount++; 
                         dev = (virNetworkForwardIfDef *)&netdef->forwardPfs[0];
+                        VIR_DEBUG("The Vf in use is %s with usageCount %d", 
+                                  iface->data.network.actual->data.direct.vf_pci_addr,
+                                  netdef->forwardVfs[ii].usageCount++);
                         break;
                     }
                 } 
@@ -3167,9 +3170,9 @@ networkNotifyActualDevice(virDomainNetDefPtr iface)
                  int jj;
                  virNetworkForwardVfDefPtr vf = NULL;
 
-                 for (jj = 0; jj < netdef->nForwardVfs; i++) {
-                     if (STREQ(vf_pci_addr, netdef->forwardVfs[ii].pci_device_addr)) {
-                         vf = &netdef->forwardVfs[ii];
+                 for (jj = 0; jj < netdef->nForwardVfs; jj++) {
+                     if (STREQ(vf_pci_addr, netdef->forwardVfs[jj].pci_device_addr)) {
+                         vf = &netdef->forwardVfs[jj];
                          break;
                      }
                  }
@@ -3299,9 +3302,9 @@ networkReleaseActualDevice(virDomainNetDefPtr iface)
                  int jj;
                  virNetworkForwardVfDefPtr vf = NULL;
                  
-                 for (jj = 0; jj < netdef->nForwardVfs; i++) {
-                     if (STREQ(vf_pci_addr, netdef->forwardVfs[ii].pci_device_addr)) {
-                         vf = &netdef->forwardVfs[ii];
+                 for (jj = 0; jj < netdef->nForwardVfs; jj++) {
+                     if (STREQ(vf_pci_addr, netdef->forwardVfs[jj].pci_device_addr)) {
+                         vf = &netdef->forwardVfs[jj];
                          break;
                      }
                  }
@@ -3311,7 +3314,7 @@ networkReleaseActualDevice(virDomainNetDefPtr iface)
                                         netdef->name, vf_pci_addr);
                      goto cleanup; 
                  }
-                 vf->usageCount--;
+                 vf->usageCount = vf->usageCount - 1;
                  VIR_DEBUG("Releasing vf device %s, usageCount %d",
                            vf->pci_device_addr, vf->usageCount);
              }

@@ -2964,6 +2964,43 @@ qemuBuildSmpArgStr(const virDomainDefPtr def,
     return virBufferContentAndReset(&buf);
 }
 
+static void 
+qemuVfHotplugAddHostdev(virDomainNetDefPtr net,
+                        virDomainDefPtr def)
+{
+    virDomainHostdevDefPtr dev;
+    virDomainDevicePCIAddressPtr addr;
+    
+    if (virDomainNetGetActualVfPCIAddr(net) != NULL) {
+        if (VIR_ALLOC(dev) < 0) {
+            virReportOOMError();
+        } 
+        else {
+            dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
+            dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+            dev->managed = 1;
+            dev->ephemeral = true;
+            addr = &dev->source.subsys.u.pci;
+            if (ifaceGetVfPCIAddr(virDomainNetGetActualVfPCIAddr(net), 
+                                  &addr->domain,
+                                  &addr->bus,
+                                  &addr->slot,
+                                  &addr->function) < 0 ) {
+                qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                                _("failed to get PCI device addr of '%s'"),
+                                virDomainNetGetActualVfPCIAddr(net)); 
+            }
+            if (VIR_REALLOC_N(def->hostdevs, def->nhostdevs+1) < 0) {
+                virReportOOMError();
+                VIR_FREE(dev);
+            } 
+            else {
+                def->hostdevs[def->nhostdevs] = dev;
+                def->nhostdevs++;
+            }
+        }
+    }
+}
 
 /*
  * Constructs a argv suitable for launching qemu with config defined
@@ -3855,6 +3892,7 @@ qemuBuildCommandLine(virConnectPtr conn,
             int vlan;
             int bootindex = bootNet;
             int actualType;
+            int actualMode;
 
             bootNet = 0;
             if (!bootindex)
@@ -3889,6 +3927,12 @@ qemuBuildCommandLine(virConnectPtr conn,
                              tapfd) >= sizeof(tapfd_name))
                     goto no_memory;
             } else if (actualType == VIR_DOMAIN_NET_TYPE_DIRECT) {
+                
+                actualMode = virDomainNetGetActualDirectMode(net);
+                
+                if (actualMode == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)
+                    qemuVfHotplugAddHostdev(net, def);
+                
                 int tapfd = qemuPhysIfaceConnect(def, conn, driver, net,
                                                  qemuCaps, vmop);
                 if (tapfd < 0)

@@ -32,6 +32,7 @@
 #include "qemu_process.h"
 #include "qemu_capabilities.h"
 #include "qemu_cgroup.h"
+#include "qemu_hotplug.h"
 
 #include "domain_audit.h"
 #include "logging.h"

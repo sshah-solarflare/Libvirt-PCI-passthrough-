@@ -1316,7 +1316,8 @@ ifaceGetVfPCIAddr(const char *vf_pci_addr,
                   unsigned int *function)
 {
     int ret = -1;
-    struct pci_config_address *dev;
+    struct pci_config_address device;
+    struct pci_config_address *dev = &device;
     
     if ((pciGetVfDeviceAddr(vf_pci_addr, &dev)) < 0) {
         virReportSystemError(ENOSYS, "%s",
@@ -1331,8 +1332,7 @@ ifaceGetVfPCIAddr(const char *vf_pci_addr,
 
     ret = 0;
 
-out:
-    VIR_FREE(dev);    
+out:    
     return ret;
 }
 

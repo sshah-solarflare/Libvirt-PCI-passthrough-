@@ -2965,11 +2965,13 @@ qemuBuildSmpArgStr(const virDomainDefPtr def,
 }
 
 static void 
-qemuVfHotplugAddHostdev(virDomainNetDefPtr net,
+qemuVfHotplugAddHostdev(virDomainObjPtr vm,
+                        virDomainNetDefPtr net,
                         virDomainDefPtr def)
 {
     virDomainHostdevDefPtr dev;
     virDomainDevicePCIAddressPtr addr;
+    qemuDomainObjPrivatePtr priv = vm->privateData;
     
     if (virDomainNetGetActualVfPCIAddr(net) != NULL) {
         if (VIR_ALLOC(dev) < 0) {
@@ -2995,6 +2997,16 @@ qemuVfHotplugAddHostdev(virDomainNetDefPtr net,
                 VIR_FREE(dev);
             } 
             else {
+                if (qemuCapsGet(priv->qemuCaps, QEMU_CAPS_DEVICE)) {
+                    if (qemuAssignDeviceHostdevAlias(def, dev, -1) < 0)
+                        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                                        _("failed to get hostdev alias for hostdev '%s'"),
+                                        virDomainNetGetActualVfPCIAddr(net)); 
+                    if (qemuDomainPCIAddressEnsureAddr(priv->pciaddrs, &dev->info) < 0)
+                        qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                                        _("failed to get PCI BDF in the guest for hostdev '%s'"),
+                                        virDomainNetGetActualVfPCIAddr(net));
+                }
                 def->hostdevs[def->nhostdevs] = dev;
                 def->nhostdevs++;
             }
@@ -3037,6 +3049,10 @@ qemuBuildCommandLine(virConnectPtr conn,
     bool has_rbd_hosts = false;
     virBuffer rbd_hosts = VIR_BUFFER_INITIALIZER;
     bool emitBootindex = false;
+    virDomainObjPtr vm = NULL;
+    virDomainObjListPtr doms = &driver->domains;
+
+    //vm = virDomainFindByUUID(doms, def->uuid);
 
     uname_normalize(&ut);
 
@@ -3044,6 +3060,8 @@ qemuBuildCommandLine(virConnectPtr conn,
         return NULL;
 
     virUUIDFormat(def->uuid, uuid);
+    
+    vm = virHashLookup(doms->objs, uuid);
 
     emulator = def->emulator;
 
@@ -3931,7 +3949,7 @@ qemuBuildCommandLine(virConnectPtr conn,
                 actualMode = virDomainNetGetActualDirectMode(net);
                 
                 if (actualMode == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)
-                    qemuVfHotplugAddHostdev(net, def);
+                    qemuVfHotplugAddHostdev(vm, net, def);
                 
                 int tapfd = qemuPhysIfaceConnect(def, conn, driver, net,
                                                  qemuCaps, vmop);

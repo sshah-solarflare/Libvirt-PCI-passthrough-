@@ -3002,7 +3002,7 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
                         dev = (virNetworkForwardIfDef *)&netdef->forwardPfs[0];
                         VIR_DEBUG("The Vf in use is %s with usageCount %d", 
                                   iface->data.network.actual->data.direct.vf_pci_addr,
-                                  netdef->forwardVfs[ii].usageCount++);
+                                  netdef->forwardVfs[ii].usageCount);
                         break;
                     }
                 } 

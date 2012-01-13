@@ -2988,14 +2988,6 @@ int qemuProcessStart(virConnectPtr conn,
                                      migrateFrom, stdin_fd, snapshot, vmop)))
         goto cleanup;
 
-/*    for (i = 0; i < vm->def->nnets; i++)
-    {
-        virDomainNetDefPtr net = vm->def->nets[i];
-        if ((virDomainNetGetActualType(net) == VIR_DOMAIN_NET_TYPE_DIRECT) &&
-            (virDomainNetGetActualDirectMode(net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID))
-            qemuVfHotplugAddHostdev(net, vm->def);
-            }*/
-
     /* now that we know it is about to start call the hook if present */
     if (virHookPresent(VIR_HOOK_DRIVER_QEMU)) {
         char *xml = virDomainDefFormat(vm->def, 0);
@@ -3184,6 +3176,14 @@ int qemuProcessStart(virConnectPtr conn,
                              VIR_DOMAIN_PAUSED_MIGRATION :
                              VIR_DOMAIN_PAUSED_USER);
     }
+    
+    /* for (i = 0; i < vm->def->nnets; i++)
+    {
+        virDomainNetDefPtr net = vm->def->nets[i];
+        if ((virDomainNetGetActualType(net) == VIR_DOMAIN_NET_TYPE_DIRECT) &&
+            (virDomainNetGetActualDirectMode(net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID))
+            qemuVfHotplugAddHostdev(net, vm->def);
+            }*/
 
     if (autodestroy &&
         qemuProcessAutoDestroyAdd(driver, vm, conn) < 0)

@@ -1386,6 +1386,11 @@ typedef enum {
     VIR_DOMAIN_SNAPSHOT_PARSE_INTERNAL = 1 << 2,
 } virDomainSnapshotParseFlags;
 
+typedef enum {
+   VIR_DOMAIN_XML_INTERNAL_STATUS = (1<<16), /* dump internal domain status information */
+   VIR_DOMAIN_XML_INTERNAL_ACTUAL_NET = (1<<17), /* dump/parse <actual> element */
+} virDomainXMLInternalFlags;
+
 virDomainSnapshotDefPtr virDomainSnapshotDefParseString(const char *xmlStr,
                                                         virCapsPtr caps,
                                                         unsigned int expectedVirtTypes,

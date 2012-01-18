@@ -56,13 +56,6 @@
  * verify that it doesn't overflow an unsigned int when shifting */
 verify(VIR_DOMAIN_VIRT_LAST <= 32);
 
-/* Private flags used internally by virDomainSaveStatus and
- * virDomainLoadStatus. */
-typedef enum {
-   VIR_DOMAIN_XML_INTERNAL_STATUS = (1<<16), /* dump internal domain status information */
-   VIR_DOMAIN_XML_INTERNAL_ACTUAL_NET = (1<<17), /* dump/parse <actual> element */
-} virDomainXMLInternalFlags;
-
 VIR_ENUM_IMPL(virDomainTaint, VIR_DOMAIN_TAINT_LAST,
               "custom-argv",
               "custom-monitor",
@@ -2780,8 +2773,9 @@ virDomainActualNetDefParseXML(xmlNodePtr node,
                 goto error;
             }
             actual->data.direct.mode = m;
-            actual->data.direct.vf_pci_addr = NULL;
         }
+        
+        actual->data.direct.vf_pci_addr = virXPathString("string(./source[1]/@vf_pci_addr)", ctxt);
 
         virtPortNode = virXPathNode("./virtualport", ctxt);
         if (virtPortNode &&
@@ -2840,6 +2834,7 @@ virDomainNetDefParseXML(virCapsPtr caps,
     char *internal = NULL;
     char *devaddr = NULL;
     char *mode = NULL;
+    char *vf_pci_addr = NULL;
     virNWFilterHashTablePtr filterparams = NULL;
     virVirtualPortProfileParamsPtr virtPort = NULL;
     virDomainActualNetDefPtr actual = NULL;
@@ -2889,6 +2884,7 @@ virDomainNetDefParseXML(virCapsPtr caps,
                        xmlStrEqual(cur->name, BAD_CAST "source")) {
                 dev  = virXMLPropString(cur, "dev");
                 mode = virXMLPropString(cur, "mode");
+                vf_pci_addr = virXMLPropString(cur, "vf_pci_addr");
             } else if ((virtPort == NULL) &&
                        ((def->type == VIR_DOMAIN_NET_TYPE_DIRECT) ||
                         (def->type == VIR_DOMAIN_NET_TYPE_NETWORK)) &&
@@ -3228,6 +3224,7 @@ cleanup:
     VIR_FREE(internal);
     VIR_FREE(devaddr);
     VIR_FREE(mode);
+    VIR_FREE(vf_pci_addr);
     virNWFilterHashTableFree(filterparams);
 
     return def;
@@ -5493,8 +5490,8 @@ virDomainDeviceDefPtr virDomainDeviceDefParse(virCapsPtr caps,
             goto error;
     } else if (xmlStrEqual(node->name, BAD_CAST "interface")) {
         dev->type = VIR_DOMAIN_DEVICE_NET;
-        if (!(dev->data.net = virDomainNetDefParseXML(caps, node, ctxt,
-                                                      NULL, flags)))
+        if (!(dev->data.net = virDomainNetDefParseXML(caps, node, ctxt, NULL, 
+                                                      flags)))
             goto error;
     } else if (xmlStrEqual(node->name, BAD_CAST "input")) {
         dev->type = VIR_DOMAIN_DEVICE_INPUT;
@@ -9038,7 +9035,10 @@ virDomainActualNetDefFormat(virBufferPtr buf,
                                  def->data.direct.mode);
             return ret;
         }
-        virBufferAsprintf(buf, " mode='%s'/>\n", mode);
+        virBufferAsprintf(buf, " mode='%s'", mode);
+        if (def->data.direct.vf_pci_addr)
+            virBufferEscapeString(buf, " vf_pci_addr='%s'/>\n",
+                                  def->data.direct.vf_pci_addr);
         virVirtualPortProfileFormat(buf, def->data.direct.virtPortProfile,
                                     "        ");
         break;
@@ -9137,6 +9137,8 @@ virDomainNetDefFormat(virBufferPtr buf,
                               def->data.direct.linkdev);
         virBufferAsprintf(buf, " mode='%s'",
                    virMacvtapModeTypeToString(def->data.direct.mode));
+        virBufferEscapeString(buf, " vf_pci_addr='%s'",
+                              def->data.direct.vf_pci_addr);
         virBufferAddLit(buf, "/>\n");
         virVirtualPortProfileFormat(buf, def->data.direct.virtPortProfile,
                                     "      ");
@@ -10524,6 +10526,8 @@ virDomainDefFormat(virDomainDefPtr def, unsigned int flags)
     virBuffer buf = VIR_BUFFER_INITIALIZER;
 
     virCheckFlags(DUMPXML_FLAGS, NULL);
+
+    flags |= VIR_DOMAIN_XML_INTERNAL_ACTUAL_NET;
     if (virDomainDefFormatInternal(def, flags, &buf) < 0)
         return NULL;
 

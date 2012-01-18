@@ -4989,7 +4989,7 @@ qemudDomainUndefine(virDomainPtr dom)
     return qemuDomainUndefineFlags(dom, 0);
 }
 
-static void
+static int
 qemuVfHotplugAttachLive(struct qemud_driver *driver,
                         virDomainObjPtr vm,
                         virDomainNetDefPtr net)
@@ -5022,10 +5022,10 @@ qemuVfHotplugAttachLive(struct qemud_driver *driver,
                 qemuReportError(VIR_ERR_INTERNAL_ERROR,
                                 _("Could not hotplug Hostdev"));
                 VIR_FREE(dev);
-                //may be required to use networkReleaseActualDevice SSHAH
             }
         }
     }
+    return ret;
 }
 
 static void 
@@ -5183,7 +5183,9 @@ qemuDomainAttachDeviceLive(virDomainObjPtr vm,
         if (ret == 0) {
             if ((virDomainNetGetActualType(dev->data.net) == VIR_DOMAIN_NET_TYPE_DIRECT) &&
                 (virDomainNetGetActualDirectMode(dev->data.net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)) 
-                qemuVfHotplugAttachLive(driver, vm, dev->data.net);
+                if (qemuVfHotplugAttachLive(driver, vm, dev->data.net) < 0) {
+                    //may be required to use networkReleaseActualDevice and also clear MAC address SSHAH
+                }
             dev->data.net = NULL;
         }
         if (!ret)
@@ -5263,6 +5265,8 @@ qemuDomainDetachDeviceLive(virDomainObjPtr vm,
 {
     struct qemud_driver *driver = dom->conn->privateData;
     int ret = -1;
+    int actualType;
+    int actualMode;
 
     switch (dev->type) {
     case VIR_DOMAIN_DEVICE_DISK:
@@ -5275,6 +5279,8 @@ qemuDomainDetachDeviceLive(virDomainObjPtr vm,
         ret = qemuDomainDetachLease(driver, vm, dev->data.lease);
         break;
     case VIR_DOMAIN_DEVICE_NET:
+        actualType = virDomainNetGetActualType(dev->data.net);
+        actualMode = virDomainNetGetActualDirectMode(dev->data.net);
         if ((virDomainNetGetActualType(dev->data.net) == VIR_DOMAIN_NET_TYPE_DIRECT) &&
             (virDomainNetGetActualDirectMode(dev->data.net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)) 
             qemuVfHotplugDetachLive(driver, vm, dev->data.net, vm->def);
@@ -5631,7 +5637,7 @@ qemuDomainModifyDeviceFlags(virDomainPtr dom, const char *xml,
         /* If dev exists it was created to modify the domain config. Free it. */
         virDomainDeviceDefFree(dev);
         dev = virDomainDeviceDefParse(driver->caps, vm->def, xml,
-                                      VIR_DOMAIN_XML_INACTIVE);
+                                      (VIR_DOMAIN_XML_INACTIVE | VIR_DOMAIN_XML_INTERNAL_ACTUAL_NET));
         if (dev == NULL) {
             ret = -1;
             goto endjob;

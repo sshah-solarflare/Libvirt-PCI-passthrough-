@@ -2861,7 +2861,7 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
             iface->data.network.actual->data.direct.mode = VIR_MACVTAP_MODE_PASSTHRU;
             break;
         case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID:
-            iface->data.network.actual->data.direct.mode = VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID; //Check this SSHAH
+            iface->data.network.actual->data.direct.mode = VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID; 
             break;
         }
 
@@ -2957,7 +2957,6 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
             else if (netdef->forwardType == VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID) {
                 char **vf_pci_addr = NULL;
                 if ((netdef->nForwardPfs > 0) && (netdef->nForwardVfs <= 0)) {
-                    VIR_DEBUG("SSHAH:Collecting Virtual Functions");
                     if ((ifaceGetVirtualFunctionsPCIAddr(netdef->forwardPfs->dev, 
                                                          &vf_pci_addr, &num_virt_fns)) < 0){
                         networkReportError(VIR_ERR_INTERNAL_ERROR,

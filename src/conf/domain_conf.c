@@ -9037,8 +9037,9 @@ virDomainActualNetDefFormat(virBufferPtr buf,
         }
         virBufferAsprintf(buf, " mode='%s'", mode);
         if (def->data.direct.vf_pci_addr)
-            virBufferEscapeString(buf, " vf_pci_addr='%s'/>\n",
+            virBufferEscapeString(buf, " vf_pci_addr='%s'",
                                   def->data.direct.vf_pci_addr);
+        virBufferAddLit(buf, "/>\n"); 
         virVirtualPortProfileFormat(buf, def->data.direct.virtPortProfile,
                                     "        ");
         break;
@@ -10074,7 +10075,8 @@ virDomainDefFormatInternal(virDomainDefPtr def,
 
     virCheckFlags(DUMPXML_FLAGS |
                   VIR_DOMAIN_XML_INTERNAL_STATUS |
-                  VIR_DOMAIN_XML_INTERNAL_ACTUAL_NET,
+                  VIR_DOMAIN_XML_INTERNAL_ACTUAL_NET |
+                  VIR_DOMAIN_XML_NO_EPHEMERAL_DEVICES,
                   -1);
 
     if (!(type = virDomainVirtTypeToString(def->virtType))) {
@@ -10525,9 +10527,11 @@ virDomainDefFormat(virDomainDefPtr def, unsigned int flags)
 {
     virBuffer buf = VIR_BUFFER_INITIALIZER;
 
-    virCheckFlags(DUMPXML_FLAGS, NULL);
-
-    flags |= VIR_DOMAIN_XML_INTERNAL_ACTUAL_NET;
+    virCheckFlags((DUMPXML_FLAGS |  VIR_DOMAIN_XML_NO_EPHEMERAL_DEVICES), 
+                  NULL);
+    
+    if (!(flags & VIR_DOMAIN_XML_NO_EPHEMERAL_DEVICES))
+        flags |= VIR_DOMAIN_XML_INTERNAL_ACTUAL_NET;
     if (virDomainDefFormatInternal(def, flags, &buf) < 0)
         return NULL;
 

@@ -57,7 +57,7 @@ VIR_ENUM_IMPL(virMacvtapMode, VIR_MACVTAP_MODE_LAST,
               "private",
               "bridge",
               "passthrough",
-              "pci-passthrough")
+              "pci-passthrough-hybrid")
 
 #if WITH_MACVTAP || WITH_VIRTUALPORT
 

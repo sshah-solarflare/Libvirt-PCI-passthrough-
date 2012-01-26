@@ -5184,7 +5184,8 @@ qemuDomainAttachDeviceLive(virDomainObjPtr vm,
             if ((virDomainNetGetActualType(dev->data.net) == VIR_DOMAIN_NET_TYPE_DIRECT) &&
                 (virDomainNetGetActualDirectMode(dev->data.net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)) 
                 if (qemuVfHotplugAttachLive(driver, vm, dev->data.net) < 0) {
-                    //may be required to use networkReleaseActualDevice and also clear MAC address SSHAH
+                    //may be required to use networkReleaseActualDevice and also clear MAC address and 
+                    // remove from local mac addr list SSHAH
                 }
             dev->data.net = NULL;
         }

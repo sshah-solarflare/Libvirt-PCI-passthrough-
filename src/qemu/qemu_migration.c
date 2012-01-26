@@ -45,6 +45,7 @@
 #include "uuid.h"
 #include "locking/domain_lock.h"
 #include "rpc/virnetsocket.h"
+#include "interface.h"
 
 
 #define VIR_FROM_THIS VIR_FROM_QEMU
@@ -803,7 +804,7 @@ qemuMigrationIsAllowed(struct qemud_driver *driver, virDomainObjPtr vm,
         def = vm->def;
     }
     for (i = 0; i < def->nhostdevs; i++) {
-        if (!def->hostdevs[i]->ephemeral) {
+        if (def->hostdevs[i]->ephemeral != true) {
             qemuReportError(VIR_ERR_OPERATION_INVALID,
                             "%s", _("Domain with assigned host devices cannot be migrated"));
             return false;
@@ -1015,6 +1016,85 @@ static void qemuMigrationRemoveEphemeralDevices(struct qemud_driver *driver,
     }
 }
 
+static int 
+qemuMigrationAttachPciDevice(struct qemud_driver *driver,
+                             virDomainObjPtr vm,
+                             virDomainNetDefPtr net)
+{
+    virDomainHostdevDefPtr dev;
+    virDomainDevicePCIAddressPtr addr;
+    int ret;
+    
+    if (virDomainNetGetActualVfPCIAddr(net) != NULL) {
+        if (VIR_ALLOC(dev) < 0) {
+            virReportOOMError();
+        } 
+        else {
+            dev->mode = VIR_DOMAIN_HOSTDEV_MODE_SUBSYS;
+            dev->source.subsys.type = VIR_DOMAIN_HOSTDEV_SUBSYS_TYPE_PCI;
+            dev->managed = 1;
+            dev->ephemeral = true;
+            addr = &dev->source.subsys.u.pci;
+            if (ifaceGetVfPCIAddr(virDomainNetGetActualVfPCIAddr(net),
+                                  &addr->domain,
+                                  &addr->bus,
+                                  &addr->slot,
+                                  &addr->function) < 0 ) {
+                qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                                _("failed to get PCI device addr of '%s'"),
+                                virDomainNetGetActualVfPCIAddr(net)); 
+            }
+            ret = qemuDomainAttachHostPciDevice(driver, vm, dev);
+            if (ret) {
+                qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                                _("Could not hotplug Hostdev"));
+                VIR_FREE(dev);
+            }
+        }
+    }
+    return ret;
+}
+
+static void 
+qemuMigrationRestoreVfHotplug(struct qemud_driver *driver,
+                              virDomainObjPtr vm)
+{
+    virDomainNetDefPtr net;
+    int i, ret;
+    
+    for (i = 0; i < vm->def->nnets; i++) {
+        net = vm->def->nets[i];
+        
+        if ((virDomainNetGetActualType(net)) == VIR_DOMAIN_NET_TYPE_DIRECT &&
+            (virDomainNetGetActualDirectMode(net)) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)
+            ret = qemuMigrationAttachPciDevice(driver, vm, net);
+        
+        if(ret < 0) {
+            //may be required to use networkReleaseActualDevice and also clear MAC address SSHAH
+            //we also need to remove from local addr list
+        }
+    }
+}
+
+/*static void
+qemuMigrationReleaseVfHotplug(struct qemud_driver *driver,
+                              virDomainObjPtr vm)
+{
+}
+
+static void
+qemuMigrationAttachVfHotplug(struct qemud_driver *driver,
+                             virDomainobjPtr vm)
+{
+    virDomainNetDefPtr net;
+    int i;
+
+    for (i = 0; i < vm->def->nnets; i++) {
+        net = vm->def->nets[i];
+        
+        
+    }
+    }*/
 
 
 /* The caller is supposed to lock the vm and start a migration job. */
@@ -1058,14 +1138,11 @@ char *qemuMigrationBegin(struct qemud_driver *driver,
 
         if (!virDomainDefCheckABIStability(vm->def, def))
             goto cleanup;
-
-        rv = qemuDomainDefFormatXML(driver, def,
-                                    VIR_DOMAIN_XML_SECURE |
-                                    VIR_DOMAIN_XML_UPDATE_CPU);
     } else {
         rv = qemuDomainFormatXML(driver, vm,
                                  VIR_DOMAIN_XML_SECURE |
-                                 VIR_DOMAIN_XML_UPDATE_CPU);
+                                 VIR_DOMAIN_XML_UPDATE_CPU |
+                                 VIR_DOMAIN_XML_NO_EPHEMERAL_DEVICES);
     }
 
 cleanup:
@@ -1770,6 +1847,8 @@ static int doNativeMigrate(struct qemud_driver *driver,
                            cookieoutlen, flags, resource, &spec);
 
 cleanup:
+    if (ret != 0)
+        qemuMigrationRestoreVfHotplug(driver, vm);
     if (spec.destType == MIGRATION_DEST_FD)
         VIR_FORCE_CLOSE(spec.dest.fd.qemu);
 
@@ -1856,6 +1935,9 @@ static int doTunnelMigrate(struct qemud_driver *driver,
                            cookieoutlen, flags, resource, &spec);
 
 cleanup:
+    if (ret != 0)
+        qemuMigrationRestoreVfHotplug(driver, vm);
+
     if (spec.destType == MIGRATION_DEST_FD) {
         VIR_FORCE_CLOSE(spec.dest.fd.qemu);
         VIR_FORCE_CLOSE(spec.dest.fd.local);
@@ -1900,7 +1982,8 @@ static int doPeer2PeerMigrate2(struct qemud_driver *driver,
      */
     if (!(dom_xml = qemuDomainFormatXML(driver, vm,
                                         VIR_DOMAIN_XML_SECURE |
-                                        VIR_DOMAIN_XML_UPDATE_CPU)))
+                                        VIR_DOMAIN_XML_UPDATE_CPU |
+                                        VIR_DOMAIN_XML_NO_EPHEMERAL_DEVICES)))
         return -1;
 
     if (virDomainObjGetState(vm, NULL) == VIR_DOMAIN_PAUSED)
@@ -2809,6 +2892,8 @@ int qemuMigrationConfirm(struct qemud_driver *driver,
             VIR_WARN("Failed to save status on vm %s", vm->def->name);
             goto cleanup;
         }
+        
+        qemuMigrationRestoreVfHotplug(driver, vm);
     }
 
     qemuMigrationCookieFree(mig);

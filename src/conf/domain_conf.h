@@ -896,7 +896,7 @@ struct _virDomainHostdevDef {
     unsigned int managed : 1;
     union {
         struct {
-            int type; /* enum virDomainHostdevBusType */
+            int type; /* enum virDomainHostdevSubsysType */
             union {
                 struct {
                     unsigned bus;

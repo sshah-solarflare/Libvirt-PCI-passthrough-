@@ -2955,14 +2955,31 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
             }
             
             else if (netdef->forwardType == VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID) {
+                int rc;
                 char **vf_pci_addr = NULL;
+                char *parent = NULL;
+                
                 if ((netdef->nForwardPfs > 0) && (netdef->nForwardVfs <= 0)) {
-                    if ((ifaceGetVirtualFunctionsPCIAddr(netdef->forwardPfs[0].dev, 
-                                                         &vf_pci_addr, &num_virt_fns)) < 0){
-                        networkReportError(VIR_ERR_INTERNAL_ERROR,
-                                           _("Could not get Virtual functions PCI addr on %s"),
-                                           netdef->forwardPfs->dev);
-                        goto here;
+                    
+                    rc = ifaceGetVlanDevice(netdef->forwardPfs[0].dev, &parent);
+
+                    if (rc) {
+                        if ((ifaceGetVirtualFunctionsPCIAddr(netdef->forwardPfs[0].dev, 
+                                                             &vf_pci_addr, &num_virt_fns)) < 0){
+                            networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                               _("Could not get Virtual functions PCI addr on %s"),
+                                               netdef->forwardPfs->dev);
+                            goto here;
+                        }
+                    }
+                    else {
+                        if ((ifaceGetVirtualFunctionsPCIAddr(parent, 
+                                                             &vf_pci_addr, &num_virt_fns)) < 0){
+                            networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                               _("Could not get Virtual functions PCI addr on %s"),
+                                               netdef->forwardPfs->dev);
+                            goto here;
+                        }
                     }
                     
                     if (num_virt_fns == 0) {

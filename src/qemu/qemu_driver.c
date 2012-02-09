@@ -5184,6 +5184,9 @@ qemuDomainAttachDeviceLive(virDomainObjPtr vm,
             if ((virDomainNetGetActualType(dev->data.net) == VIR_DOMAIN_NET_TYPE_DIRECT) &&
                 (virDomainNetGetActualDirectMode(dev->data.net) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)) 
                 if (qemuVfHotplugAttachLive(driver, vm, dev->data.net) < 0) {
+                    ret = -1;
+                    qemuReportError(VIR_ERR_INTERNAL_ERROR,
+                                    _("device cannot be attached because VF Hotplug failed"));
                     //may be required to use networkReleaseActualDevice and also clear MAC address and 
                     // remove from local mac addr list SSHAH
                 }

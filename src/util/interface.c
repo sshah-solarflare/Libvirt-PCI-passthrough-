@@ -1179,6 +1179,42 @@ out:
 }
 
 /**
+ * ifaceReplaceVfVlan:
+ * @vlan: new VLAN for interface
+ * @vf_pci_addr: BDF of the PCI Function in a %.4x:%.2x:%.2x.%.1x format 
+ *
+ * Returns 0 on success, -errno on failure
+ *
+ */
+
+int 
+ifaceReplaceVfVlan(int vlan,
+                   const char *vf_pci_addr)
+{
+    int rc = -1;
+    char *pci_sysfs_device_link = NULL;
+    char *vlanstr = NULL;
+    const char *file="tci";
+    
+    if (pciSysfsDeviceFile(&pci_sysfs_device_link, vf_pci_addr, file) < 0) {
+        virReportSystemError(ENOSYS, "%s",
+                             _("Failed to get PCI SYSFS file"));
+        goto out;
+    }
+    
+    if (virAsprintf(&vlanstr, "%x", vlan) < 0) {
+        virReportOOMError();
+        return -1;
+    }
+    
+    rc = virFileWriteStr(pci_sysfs_device_link, vlanstr, 0);
+
+out:
+    VIR_FREE(pci_sysfs_device_link);
+    return rc;
+}   
+
+/**
  * ifaceRestoreMacAddress:
  * @linkdev: name of interface
  * @stateDir: directory containing old MAC address
@@ -1267,6 +1303,42 @@ out:
     return rc;
 }
 
+/**
+ * ifaceRestoreVfVlan:
+ * @vf_pci_addr: BDF of the PCI Function in a %.4x:%.2x:%.2x.%.1x format 
+ *
+ * Returns 0 on success, -errno on failure
+ *
+ */
+
+int 
+ifaceRestoreVfVlan(int vlan, const char *vf_pci_addr)
+{
+    int rc = -1;
+    char *pci_sysfs_device_link = NULL;
+    char *vlanstr = NULL;
+    const char *file = "tci";
+    
+    vlan = 0;
+
+    if (pciSysfsDeviceFile(&pci_sysfs_device_link, vf_pci_addr, file) < 0) {
+        virReportSystemError(ENOSYS, "%s",
+                             _("Failed to get PCI SYSFS file"));
+        goto out;
+    }
+
+    if (virAsprintf(&vlanstr, "%x", vlan) < 0) {
+        virReportOOMError();
+        return -1;
+    }
+
+    rc = virFileWriteStr(pci_sysfs_device_link, vlanstr, 0);
+
+out:
+    VIR_FREE(pci_sysfs_device_link);
+    return rc;
+}
+
 #ifdef __linux__
 static int
 ifaceSysfsFile(char **pf_sysfs_device_link, const char *ifname,
@@ -1336,6 +1408,36 @@ out:
     return ret;
 }
 
+int
+ifaceGetVlanDevice(const char *vlanifname, char **iface)
+{
+    struct vlan_ioctl_args vlanargs = {
+        .cmd = GET_VLAN_REALDEV_NAME_CMD,
+    };
+    int rc = 0;
+    int fd = socket(PF_PACKET, SOCK_DGRAM, 0);
+    
+    if (fd < 0)
+        return errno;
+    
+    if (virStrcpyStatic(vlanargs.device1, vlanifname) == NULL) {
+        rc = EINVAL;
+        goto err_exit;
+    }
+    
+    if (ioctl(fd, SIOCGIFVLAN, &vlanargs) != 0) {
+        rc = errno;
+        goto err_exit;
+    }
+    
+    *iface = strndup(vlanargs.u.device2, sizeof(vlanargs.u.device2));
+    
+err_exit:
+    VIR_FORCE_CLOSE(fd);
+    
+    return rc;
+}
+
 /*
  * ifaceAddRemoveSfcPeerDevice:
  *
@@ -1355,9 +1457,21 @@ ifaceAddRemoveSfcPeerDevice(const char *pfname,
     int ret = -1, rc;
     char *pf_sysfs_device_link = NULL;
     char *line;
+    char *parent = NULL;
 
-    if (ifaceSysfsDeviceFile(&pf_sysfs_device_link, pfname, "local_addrs"))
-        return ret;
+    rc = ifaceGetVlanDevice(pfname, &parent);
+
+    VIR_DEBUG("SSHAH: pfname=%s", pfname);
+    VIR_DEBUG("SSHAH: parent=%s", parent);
+    
+    if (rc) {
+        if (ifaceSysfsDeviceFile(&pf_sysfs_device_link, pfname, "local_addrs"))
+            return ret;
+    }
+    else {
+        if (ifaceSysfsDeviceFile(&pf_sysfs_device_link, parent, "local_addrs"))
+            return ret;
+    }
 
     if (VIR_ALLOC_N(line, VIR_MAC_STRING_BUFLEN + 1) < 0) {
         VIR_FREE(pf_sysfs_device_link);
@@ -1398,7 +1512,7 @@ ifaceGetVirtualFunctionsPCIAddr(const char *pfname,
     char *pf_sysfs_device_link = NULL;
     struct pci_config_address **virt_fns;
 
-    if (ifaceSysfsFile(&pf_sysfs_device_link, pfname, "device") < 0)
+    if (ifaceSysfsFile(&pf_sysfs_device_link, pfname, "device"))
         return ret;
     
     if (pciGetVirtualFunctions(pf_sysfs_device_link, &virt_fns,

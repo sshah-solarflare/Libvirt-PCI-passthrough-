@@ -106,12 +106,14 @@ static void
 virNetworkForwardPfDefClear(virNetworkForwardPfDefPtr def)
 {
     VIR_FREE(def->dev);
+    VIR_FREE(def->vlan);
 }
 
 static void
 virNetworkForwardVfDefClear(virNetworkForwardVfDefPtr def)
 {
     VIR_FREE(def->pci_device_addr);
+    VIR_FREE(def->vlan);
 }
 
 static void virNetworkIpDefClear(virNetworkIpDefPtr def)
@@ -849,6 +851,7 @@ virNetworkDefParseXML(xmlXPathContextPtr ctxt)
     xmlNodePtr forwardNode = NULL;
     int nIps, nPortGroups, nForwardIfs, nForwardPfs;
     char *forwardDev = NULL;
+    char *vlan_id = NULL;
     xmlNodePtr save = ctxt->node;
     xmlNodePtr bandwidthNode = NULL;
 
@@ -992,8 +995,6 @@ virNetworkDefParseXML(xmlXPathContextPtr ctxt)
         /* all of these modes can use a pool of physical interfaces */
         nForwardIfs = virXPathNodeSet("./interface", ctxt, &forwardIfNodes);
         if (nForwardIfs <= 0) {
-            virNetworkReportError(VIR_ERR_XML_ERROR,
-                                  _("No interface pool given, checking for SRIOV pf")); 
             nForwardPfs = virXPathNodeSet("./pf", ctxt, &forwardPfNodes);
             
             if (nForwardPfs <= 0) {
@@ -1024,9 +1025,13 @@ virNetworkDefParseXML(xmlXPathContextPtr ctxt)
                 goto error;
             }
             
+            vlan_id = virXMLPropString(*forwardPfNodes, "vlan");
+            
             def->forwardPfs->usageCount = 0;
             def->forwardPfs->dev = forwardDev;
             forwardDev = NULL;
+            def->forwardPfs->vlan = vlan_id;
+            vlan_id = NULL;
             def->nForwardPfs++;
         }
         
@@ -1083,6 +1088,7 @@ virNetworkDefParseXML(xmlXPathContextPtr ctxt)
             }
         }
         VIR_FREE(forwardDev);
+        VIR_FREE(vlan_id);
         VIR_FREE(forwardPfNodes);
         VIR_FREE(forwardIfNodes);
 
@@ -1142,6 +1148,7 @@ virNetworkDefParseXML(xmlXPathContextPtr ctxt)
     VIR_FREE(forwardIfNodes);
     VIR_FREE(forwardPfNodes);
     VIR_FREE(forwardDev);
+    VIR_FREE(vlan_id);
     ctxt->node = save;
     return NULL;
 }
@@ -1376,9 +1383,14 @@ char *virNetworkDefFormat(const virNetworkDefPtr def, unsigned int flags)
         
         if (def->nForwardPfs) {
             if (def->forwardPfs->dev) {
-                virBufferEscapeString(&buf, "    <pf dev='%s'/>\n",
+                virBufferEscapeString(&buf, "    <pf dev='%s'",
                                       def->forwardPfs->dev); 
             }
+            if (def->forwardPfs->vlan) {
+                virBufferEscapeString(&buf, " vlan='%s'", 
+                                      def->forwardPfs->vlan);
+            }
+            virBufferAddLit(&buf, "'/>\n");
         }
 
         if (flags && def->nForwardPfs) 

@@ -355,6 +355,7 @@ virDomainNetGetActualDirectDev;
 virDomainNetGetActualDirectMode;
 virDomainNetGetActualType;
 virDomainNetGetActualVfPCIAddr;
+virDomainNetGetActualVlan;
 virDomainNetGetActualDirectVirtPortProfile;
 virDomainNetIndexByMac;
 virDomainNetInsert;

@@ -116,6 +116,7 @@ typedef virNetworkForwardVfDef *virNetworkForwardVfDefPtr;
 struct _virNetworkForwardVfDef {
     char *pci_device_addr;
     int usageCount;
+    char *vlan;
 };
 
 typedef struct _virNetworkForwardPfDef virNetworkForwardPfDef;
@@ -123,6 +124,7 @@ typedef virNetworkForwardPfDef *virNetworkForwardPfDefPtr;
 struct _virNetworkForwardPfDef {
     char *dev;
     int usageCount;
+    char *vlan;
 };
 
 typedef struct _virNetworkForwardIfDef virNetworkForwardIfDef;

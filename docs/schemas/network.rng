@@ -98,6 +98,11 @@
                 <attribute name='dev'>
                   <ref name='deviceName'/>
                 </attribute>
+		<optional>
+		  <attribute name='vlan'>
+		    <ref name='vlan_id'/>
+		  </attribute>
+		</optional>
               </element>
             </optional>
           </element>
@@ -219,5 +224,9 @@
       <param name="pattern">(ipv4)|(ipv6)</param>
     </data>
   </define>
-
+  <define name='vlan_id'>
+    <data type='unsignedInt'>
+      <param name="maxInclusive">4096</param>
+    </data>
+  </define>
 </grammar>

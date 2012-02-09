@@ -2728,6 +2728,7 @@ virDomainActualNetDefParseXML(xmlNodePtr node,
     xmlNodePtr bandwidth_node = NULL;
     char *type = NULL;
     char *mode = NULL;
+    char *vlan = NULL;
 
     if (VIR_ALLOC(actual) < 0) {
         virReportOOMError();
@@ -2776,6 +2777,14 @@ virDomainActualNetDefParseXML(xmlNodePtr node,
         }
         
         actual->data.direct.vf_pci_addr = virXPathString("string(./source[1]/@vf_pci_addr)", ctxt);
+
+        vlan = virXPathString("string(./source[1]/@vlan)", ctxt);
+        
+        if (vlan) {
+            if (virStrToLong_i((const char *)vlan, NULL, 10,
+                                &actual->data.direct.vlan) < 0)
+                goto error;
+        }
 
         virtPortNode = virXPathNode("./virtualport", ctxt);
         if (virtPortNode &&
@@ -2835,6 +2844,7 @@ virDomainNetDefParseXML(virCapsPtr caps,
     char *devaddr = NULL;
     char *mode = NULL;
     char *vf_pci_addr = NULL;
+    char *vlan = NULL;
     virNWFilterHashTablePtr filterparams = NULL;
     virVirtualPortProfileParamsPtr virtPort = NULL;
     virDomainActualNetDefPtr actual = NULL;
@@ -2885,6 +2895,7 @@ virDomainNetDefParseXML(virCapsPtr caps,
                 dev  = virXMLPropString(cur, "dev");
                 mode = virXMLPropString(cur, "mode");
                 vf_pci_addr = virXMLPropString(cur, "vf_pci_addr");
+                vlan = virXMLPropString(cur, "vlan");
             } else if ((virtPort == NULL) &&
                        ((def->type == VIR_DOMAIN_NET_TYPE_DIRECT) ||
                         (def->type == VIR_DOMAIN_NET_TYPE_NETWORK)) &&
@@ -3225,6 +3236,7 @@ cleanup:
     VIR_FREE(devaddr);
     VIR_FREE(mode);
     VIR_FREE(vf_pci_addr);
+    VIR_FREE(vlan);
     virNWFilterHashTableFree(filterparams);
 
     return def;
@@ -8994,6 +9006,7 @@ virDomainActualNetDefFormat(virBufferPtr buf,
     int ret = -1;
     const char *type;
     const char *mode;
+    char *vlan;
 
     if (!def)
         return 0;
@@ -9039,6 +9052,11 @@ virDomainActualNetDefFormat(virBufferPtr buf,
         if (def->data.direct.vf_pci_addr)
             virBufferEscapeString(buf, " vf_pci_addr='%s'",
                                   def->data.direct.vf_pci_addr);
+        if (def->data.direct.vlan) {
+            if (virAsprintf(&vlan, "%d", def->data.direct.vlan) < 0)
+                goto error;
+            virBufferEscapeString(buf, " vlan=%s'", vlan);
+        }
         virBufferAddLit(buf, "/>\n"); 
         virVirtualPortProfileFormat(buf, def->data.direct.virtPortProfile,
                                     "        ");
@@ -9140,6 +9158,7 @@ virDomainNetDefFormat(virBufferPtr buf,
                    virMacvtapModeTypeToString(def->data.direct.mode));
         virBufferEscapeString(buf, " vf_pci_addr='%s'",
                               def->data.direct.vf_pci_addr);
+        // Add formatting for VLAN here: SSHAH
         virBufferAddLit(buf, "/>\n");
         virVirtualPortProfileFormat(buf, def->data.direct.virtPortProfile,
                                     "      ");
@@ -12243,6 +12262,18 @@ virDomainNetGetActualVfPCIAddr(virDomainNetDefPtr iface)
     if (!iface->data.network.actual)
         return NULL;
     return iface->data.network.actual->data.direct.vf_pci_addr;
+}
+
+int
+virDomainNetGetActualVlan(virDomainNetDefPtr iface)
+{
+    if (iface->type == VIR_DOMAIN_NET_TYPE_DIRECT)
+        return iface->data.direct.vlan;
+    if (iface->type != VIR_DOMAIN_NET_TYPE_NETWORK)
+        return 0;
+    if (!iface->data.network.actual)
+        return 0;
+    return iface->data.network.actual->data.direct.vlan;    
 }
 
 char *

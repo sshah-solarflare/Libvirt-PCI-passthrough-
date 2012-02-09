@@ -265,6 +265,7 @@ openMacvtapTap(const char *tgifname,
                const char *linkdev,
                enum virMacvtapMode mode,
                const char *vf_pci_addr,
+               int vlan,
                int vnet_hdr,
                const unsigned char *vmuuid,
                virVirtualPortProfileParamsPtr virtPortProfile,
@@ -301,9 +302,10 @@ openMacvtapTap(const char *tgifname,
     }
 
     if (mode == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID) {
-        //this will require passing the vf_pci_addr here by qemuPhysIfaceConnect
-        //Change the mac address of the VF via Sysfs files ie the mac_addr file
         if (ifaceReplaceVfMacAddress(macaddress, vf_pci_addr) != 0) {
+            return -1;
+        }
+        if (ifaceReplaceVfVlan(vlan, vf_pci_addr) != 0) {
             return -1;
         }
     }
@@ -415,6 +417,7 @@ delMacvtap(const char *ifname,
            const unsigned char *macaddr,
            const char *linkdev,
            const char *vf_pci_addr,
+           int vlan,
            int mode,
            virVirtualPortProfileParamsPtr virtPortProfile,
            char *stateDir)
@@ -425,6 +428,7 @@ delMacvtap(const char *ifname,
     
     if (mode == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID) {
         ifaceRestoreVfMacAddress(vf_pci_addr);
+        ifaceRestoreVfVlan(vlan, vf_pci_addr);
     }
 
     if (ifname) {

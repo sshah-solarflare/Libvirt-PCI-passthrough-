@@ -81,10 +81,15 @@ int ifaceReplaceMacAddress(const unsigned char *macaddress,
 int ifaceReplaceVfMacAddress(const unsigned char *macaddress,
                              const char *vf_pci_addr);
 
+int ifaceReplaceVfVlan(int vlan,
+                       const char *vf_pci_addr);
+
 int ifaceRestoreMacAddress(const char *linkdev,
                            const char *stateDir);
 
 int ifaceRestoreVfMacAddress(const char *vf_pci_addr);
+
+int ifaceRestoreVfVlan(int vlan, const char *vf_pci_addr);
 
 int ifaceIsVirtualFunction(const char *ifname);
 
@@ -106,6 +111,8 @@ int ifaceGetVfPCIAddr(const char *vf_pci_addr,
                       unsigned int *bus,
                       unsigned int *slot,
                       unsigned int *function);
+
+int ifaceGetVlanDevice(const char *vlanifname, char **iface);
 
 int ifaceAddRemoveSfcPeerDevice(const char *pfname,
                                 const unsigned char *mac,

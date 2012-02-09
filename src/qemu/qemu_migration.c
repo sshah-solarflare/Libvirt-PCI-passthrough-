@@ -1062,6 +1062,14 @@ qemuMigrationRestoreVfHotplug(struct qemud_driver *driver,
     virDomainNetDefPtr net;
     int i, ret;
     
+    /* Do nothing if ephemeral devices are present in which case
+       this function was called before qemuRemoveEphemeralDevices */
+
+    for (i = 0; i < vm->def->nhostdevs; i++) {
+        if (vm->def->hostdevs[i]->ephemeral)
+            return;
+    }
+    
     for (i = 0; i < vm->def->nnets; i++) {
         net = vm->def->nets[i];
         

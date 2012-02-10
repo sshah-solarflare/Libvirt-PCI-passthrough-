@@ -238,6 +238,13 @@ virNetworkDefForwardIf(const virNetworkDefPtr def, size_t n)
             ? def->forwardIfs[n].dev : NULL);
 }
 
+static inline const char *
+virNetworkDefForwardPf(const virNetworkDefPtr def, size_t n)
+{
+    return ((def->forwardPfs && (def->nForwardPfs > n))
+            ? def->forwardPfs[n].dev : NULL);
+}
+
 virPortGroupDefPtr virPortGroupFindByName(virNetworkDefPtr net,
                                           const char *portgroup);
 

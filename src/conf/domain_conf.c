@@ -9055,7 +9055,7 @@ virDomainActualNetDefFormat(virBufferPtr buf,
         if (def->data.direct.vlan) {
             if (virAsprintf(&vlan, "%d", def->data.direct.vlan) < 0)
                 goto error;
-            virBufferEscapeString(buf, " vlan=%s'", vlan);
+            virBufferEscapeString(buf, " vlan='%s'", vlan);
         }
         virBufferAddLit(buf, "/>\n"); 
         virVirtualPortProfileFormat(buf, def->data.direct.virtPortProfile,

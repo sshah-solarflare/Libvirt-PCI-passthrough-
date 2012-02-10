@@ -1364,8 +1364,10 @@ char *virNetworkDefFormat(const virNetworkDefPtr def, unsigned int flags)
 
     if (def->forwardType != VIR_NETWORK_FORWARD_NONE) {
         char *dev = NULL;
-        if (def->nForwardPfs < 1) 
+        if (def->nForwardIfs > 0) 
             dev = (char *)virNetworkDefForwardIf(def, 0);
+        else
+            dev = (char *)virNetworkDefForwardPf(def, 0);
         const char *mode = virNetworkForwardTypeToString(def->forwardType);
 
         if (!mode) {
@@ -1382,15 +1384,15 @@ char *virNetworkDefFormat(const virNetworkDefPtr def, unsigned int flags)
 
         
         if (def->nForwardPfs) {
-            if (def->forwardPfs->dev) {
+            if (def->forwardPfs[0].dev) {
                 virBufferEscapeString(&buf, "    <pf dev='%s'",
-                                      def->forwardPfs->dev); 
+                                      def->forwardPfs[0].dev); 
             }
-            if (def->forwardPfs->vlan) {
+            if (def->forwardPfs[0].vlan) {
                 virBufferEscapeString(&buf, " vlan='%s'", 
-                                      def->forwardPfs->vlan);
+                                      def->forwardPfs[0].vlan);
             }
-            virBufferAddLit(&buf, "'/>\n");
+            virBufferAddLit(&buf, "/>\n");
         }
 
         if (flags && def->nForwardPfs) 

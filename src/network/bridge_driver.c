@@ -2999,7 +2999,8 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
                     for (ii = 0; ii < netdef->nForwardVfs; ii++) {
                         netdef->forwardVfs[ii].pci_device_addr = strdup(vf_pci_addr[ii]);
                         netdef->forwardVfs[ii].usageCount = 0;
-                        netdef->forwardVfs[ii].vlan = strdup(netdef->forwardPfs[0].vlan);
+                        if (netdef->forwardPfs[0].vlan)
+                            netdef->forwardVfs[ii].vlan = strdup(netdef->forwardPfs[0].vlan);
                     }
                     
                 here:
@@ -3015,13 +3016,17 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
                 for (ii = 0; ii < netdef->nForwardVfs; ii++) {
                     if (netdef->forwardVfs[ii].usageCount == 0) {
                         iface->data.network.actual->data.direct.vf_pci_addr = strdup(netdef->forwardVfs[ii].pci_device_addr);
-                        if (virStrToLong_i((const char *)netdef->forwardVfs[ii].vlan,
-                                           NULL, 0, 
-                                           &(iface->data.network.actual->data.direct.vlan)) < 0) {
-                            networkReportError(VIR_ERR_INTERNAL_ERROR,
-                                               _("Could not convert vlan to int"));
-                            goto cleanup;
+                        if (netdef->forwardVfs[ii].vlan) {
+                            if (virStrToLong_i((const char *)netdef->forwardVfs[ii].vlan,
+                                               NULL, 0, 
+                                               &(iface->data.network.actual->data.direct.vlan)) < 0) {
+                                networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                                   _("Could not convert vlan to int"));
+                                goto cleanup;
+                            }
                         }
+                        else
+                            iface->data.network.actual->data.direct.vlan = 0;
                         netdef->forwardVfs[ii].usageCount++; 
                         dev = (virNetworkForwardIfDef *)&netdef->forwardPfs[0];
                         VIR_DEBUG("The Vf in use is %s with usageCount %d", 

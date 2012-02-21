@@ -401,4 +401,7 @@ void qemuDomainReAttachHostDevices(struct qemud_driver *driver,
         return;
 
     qemuDomainReAttachHostdevDevices(driver, def->name, def->hostdevs, def->nhostdevs);
+
+    /* workaround for RHEL bug 696877 */
+    sleep(6);
 }

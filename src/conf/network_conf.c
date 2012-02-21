@@ -1012,27 +1012,40 @@ virNetworkDefParseXML(xmlXPathContextPtr ctxt)
             }
            
             if (forwardDev) {
-                virNetworkReportError(VIR_ERR_XML_ERROR,
-                                      _("A forward Dev should not be used when using a SRIOV PF"));
-                goto error;
+                def->forwardPfs[0].usageCount = 0;
+                def->forwardPfs[0].dev = forwardDev;
+                forwardDev = NULL;
+                def->nForwardPfs++;
             }
         
             forwardDev = virXMLPropString(*forwardPfNodes, "dev");
+            vlan_id = virXMLPropString(*forwardPfNodes, "vlan");
+
             if (!forwardDev) {
                 virNetworkReportError(VIR_ERR_XML_ERROR,
                                       _("Missing required dev attribute in network '%s' pf element"),
                                       def->name);
                 goto error;
             }
-            
-            vlan_id = virXMLPropString(*forwardPfNodes, "vlan");
-            
-            def->forwardPfs->usageCount = 0;
-            def->forwardPfs->dev = forwardDev;
+
+            if (def->nForwardPfs == 1) {
+                if (STRNEQ(forwardDev, def->forwardPfs[0].dev)) {
+                    virNetworkReportError(VIR_ERR_XML_ERROR,
+                                          _("forward dev '%s' must match pf element dev '%s' in network '%s'"),
+                                          def->forwardPfs[0].dev,
+                                          forwardDev, def->name);
+                    goto error;
+                } 
+            }
+            else {
+                def->nForwardPfs++;
+            }
+             
+            def->forwardPfs[0].usageCount = 0;
+            def->forwardPfs[0].dev = forwardDev;
             forwardDev = NULL;
-            def->forwardPfs->vlan = vlan_id;
+            def->forwardPfs[0].vlan = vlan_id;
             vlan_id = NULL;
-            def->nForwardPfs++;
         }
         
         else if (nForwardPfs > 1) {

@@ -918,6 +918,10 @@ int qemuDomainAttachHostPciDevice(struct qemud_driver *driver,
     VIR_FREE(configfd_name);
     VIR_FORCE_CLOSE(configfd);
 
+    /* Add a 6 sec delay for acpi hotplug to cope */
+    /* This is a workaround for RHEL bug 696877 */
+    sleep(6);
+
     return 0;
 
 error:
@@ -1817,6 +1821,10 @@ int qemuDomainDetachHostPciDevice(struct qemud_driver *driver,
     }
     virDomainHostdevDefFree(detach);
 
+    /* Add a 6 sec delay for acpi hotplug to cope */
+    /* This is a workaround for RHEL bug 696877 */
+    sleep(6); 
+    
     return ret;
 }
 

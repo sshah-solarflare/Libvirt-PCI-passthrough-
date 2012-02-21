@@ -2835,7 +2835,7 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
                (netdef->forwardType == VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID)) {
         virVirtualPortProfileParamsPtr virtport = NULL;
 
-        /* <forward type='bridge|private|vepa|passthrough'> are all
+        /* <forward type='bridge|private|vepa|passthrough|pci-passthrough-hybrid'> are all
          * VIR_DOMAIN_NET_TYPE_DIRECT.
          */
 
@@ -3437,6 +3437,16 @@ networkGetNetworkAddress(const char *netname, char **netaddr)
         if (!devname) {
             networkReportError(VIR_ERR_INTERNAL_ERROR,
                                _("network '%s' has no associated interface or bridge"),
+                               netdef->name);
+        }
+        break;
+    case VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID:
+        if (netdef->nForwardPfs > 0) 
+            devname = netdef->forwardPfs[0].dev;
+
+        if (!devname) {
+            networkReportError(VIR_ERR_INTERNAL_ERROR,
+                               _("network '%s' has no associated physical interface"),
                                netdef->name);
         }
         break;

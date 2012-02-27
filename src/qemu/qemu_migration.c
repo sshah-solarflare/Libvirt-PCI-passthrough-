@@ -1023,7 +1023,7 @@ qemuMigrationAttachPciDevice(struct qemud_driver *driver,
 {
     virDomainHostdevDefPtr dev;
     virDomainDevicePCIAddressPtr addr;
-    int ret;
+    int ret = 0;
     
     if (virDomainNetGetActualVfPCIAddr(net) != NULL) {
         if (VIR_ALLOC(dev) < 0) {
@@ -1089,20 +1089,28 @@ qemuMigrationReleaseVfHotplug(struct qemud_driver *driver,
                               virDomainObjPtr vm)
 {
 }
+*/
 
 static void
 qemuMigrationAttachVfHotplug(struct qemud_driver *driver,
-                             virDomainobjPtr vm)
+                             virDomainObjPtr vm)
 {
     virDomainNetDefPtr net;
-    int i;
+    int i, ret;
 
     for (i = 0; i < vm->def->nnets; i++) {
         net = vm->def->nets[i];
         
+        if ((virDomainNetGetActualType(net)) == VIR_DOMAIN_NET_TYPE_DIRECT &&
+            (virDomainNetGetActualDirectMode(net)) == VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)
+            ret = qemuMigrationAttachPciDevice(driver, vm, net);
         
+        if(ret < 0) {
+            //may be required to use networkReleaseActualDevice and also clear MAC address SSHAH
+            //we also need to remove from local addr list
+        }
     }
-    }*/
+}
 
 
 /* The caller is supposed to lock the vm and start a migration job. */
@@ -2804,6 +2812,8 @@ qemuMigrationFinish(struct qemud_driver *driver,
             VIR_WARN("Failed to save status on vm %s", vm->def->name);
             goto endjob;
         }
+
+        qemuMigrationAttachVfHotplug(driver, vm);
 
         /* Guest is successfully running, so cancel previous auto destroy */
         qemuProcessAutoDestroyRemove(driver, vm);

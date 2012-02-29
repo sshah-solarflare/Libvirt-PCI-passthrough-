@@ -127,10 +127,9 @@ qemuPhysIfaceConnect(virDomainDefPtr def,
         net->model && STREQ(net->model, "virtio"))
         vnet_hdr = 1;
     
-    if (virDomainNetGetActualDirectMode(net) ==  VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)
-        err = ifaceAddRemoveSfcPeerDevice(virDomainNetGetActualDirectDev(net),
-                                          net->mac,
-                                          true);
+    err = ifaceAddRemoveSfcPeerDevice(virDomainNetGetActualDirectDev(net),
+                                      net->mac,
+                                      true);
   
     rc = openMacvtapTap(net->ifname, net->mac,
                         virDomainNetGetActualDirectDev(net),
@@ -200,10 +199,9 @@ qemuPhysIfaceDisconnect(struct qemud_driver *driver,
                virDomainNetGetActualDirectMode(net),
                virDomainNetGetActualDirectVirtPortProfile(net),
                driver->stateDir);
-    if (virDomainNetGetActualDirectMode(net) ==  VIR_MACVTAP_MODE_PCI_PASSTHRU_HYBRID)
-        err = ifaceAddRemoveSfcPeerDevice(virDomainNetGetActualDirectDev(net),
-                                          net->mac,
-                                          false);
+    err = ifaceAddRemoveSfcPeerDevice(virDomainNetGetActualDirectDev(net),
+                                      net->mac,
+                                      false);
 #endif
 }
 

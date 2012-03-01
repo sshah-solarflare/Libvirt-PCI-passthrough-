@@ -156,7 +156,6 @@ if WITH_LIBVIRTD
 test_scripts +=				\
 	test_conf.sh			\
 	cpuset				\
-	daemon-conf			\
 	define-dev-segfault		\
 	int-overflow			\
 	libvirtd-fail			\
@@ -174,7 +173,6 @@ else
 EXTRA_DIST += 				\
 	test_conf.sh			\
 	cpuset				\
-	daemon-conf			\
 	define-dev-segfault		\
 	int-overflow			\
 	libvirtd-fail			\

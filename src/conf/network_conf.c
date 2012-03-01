@@ -996,12 +996,6 @@ virNetworkDefParseXML(xmlXPathContextPtr ctxt)
         nForwardIfs = virXPathNodeSet("./interface", ctxt, &forwardIfNodes);
         if (nForwardIfs <= 0) {
             nForwardPfs = virXPathNodeSet("./pf", ctxt, &forwardPfNodes);
-            
-            if (nForwardPfs <= 0) {
-                virNetworkReportError(VIR_ERR_XML_ERROR,
-                                      _("No interface pool or SRIOV physical device given"));
-            goto error;
-            }
         }
 
         if (nForwardPfs == 1) {
@@ -1392,8 +1386,15 @@ char *virNetworkDefFormat(const virNetworkDefPtr def, unsigned int flags)
         virBufferAddLit(&buf, "  <forward");
         if (dev)
             virBufferEscapeString(&buf, " dev='%s'", dev);
-        virBufferAsprintf(&buf, " mode='%s'%s>\n", mode,
-                          (def->nForwardIfs || def->nForwardPfs) ? "" : "/");
+        virBufferAsprintf(&buf, " mode='%s'", mode);
+        
+        if (def->nForwardIfs || def->nForwardPfs) {
+            virBufferAddLit(&buf, ">\n"); 
+        } 
+        else {
+            virBufferAddLit(&buf, "/>\n");
+            goto escape1;
+        }
 
         
         if (def->nForwardPfs) {
@@ -1424,6 +1425,7 @@ char *virNetworkDefFormat(const virNetworkDefPtr def, unsigned int flags)
         virBufferAddLit(&buf, "  </forward>\n");
     }
 
+escape1:
     if (def->forwardType == VIR_NETWORK_FORWARD_NONE ||
          def->forwardType == VIR_NETWORK_FORWARD_NAT ||
          def->forwardType == VIR_NETWORK_FORWARD_ROUTE) {

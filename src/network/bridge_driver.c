@@ -2958,6 +2958,7 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
                 int rc;
                 char **vf_pci_addr = NULL;
                 char *parent = NULL;
+                unsigned char mac[VIR_MAC_BUFLEN] ;
                 
                 if ((netdef->nForwardPfs > 0) && (netdef->nForwardVfs <= 0)) {
                     
@@ -3012,9 +3013,15 @@ networkAllocateActualDevice(virDomainNetDefPtr iface)
                 
                 /* pick first dev with 0 usageCount */
                 
-                
                 for (ii = 0; ii < netdef->nForwardVfs; ii++) {
                     if (netdef->forwardVfs[ii].usageCount == 0) {
+                        rc = ifaceGetVfMacAddress(mac, netdef->forwardVfs[ii].pci_device_addr);
+
+                        if (rc >= 0) {
+                            if (mac[0] | mac[1] | mac[2] | mac[3] | mac[4] | mac[5])
+                                continue;
+                        }
+                        
                         iface->data.network.actual->data.direct.vf_pci_addr = strdup(netdef->forwardVfs[ii].pci_device_addr);
                         if (netdef->forwardVfs[ii].vlan) {
                             if (virStrToLong_i((const char *)netdef->forwardVfs[ii].vlan,

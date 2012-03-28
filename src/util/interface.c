@@ -1178,6 +1178,44 @@ out:
     return rc;
 }
 
+int
+ifaceGetVfMacAddress(unsigned char *macaddress,
+                     const char *vf_pci_addr)
+{
+    int rc = -1;
+    char *pci_sysfs_device_link = NULL;
+    const char *file = "mac_addr";
+    char *buf;
+
+    if (pciSysfsDeviceFile(&pci_sysfs_device_link, vf_pci_addr, file) < 0) {
+        virReportSystemError(ENOSYS, "%s",
+                             _("Failed to get PCI SYSFS file"));
+        goto out;
+    } 
+    
+    rc = virFileReadAll(pci_sysfs_device_link, VIR_MAC_STRING_BUFLEN, &buf);
+
+    if ((rc < 0) || (rc == 0)) {
+        goto out;
+    }
+
+    if (buf[rc-1] != '\0') {
+        if ((VIR_REALLOC_N(buf, rc+1)) < 0) {
+            virReportOOMError();
+            rc = -1;
+            goto out;
+        }
+        buf[rc] = '\0';
+    }
+
+    rc = virParseMacAddr(buf, macaddress);
+
+out:
+    VIR_FREE(pci_sysfs_device_link);
+    VIR_FREE(buf);
+    return rc; 
+}
+
 /**
  * ifaceReplaceVfVlan:
  * @vlan: new VLAN for interface
@@ -1460,9 +1498,6 @@ ifaceAddRemoveSfcPeerDevice(const char *pfname,
     char *parent = NULL;
 
     rc = ifaceGetVlanDevice(pfname, &parent);
-
-    VIR_DEBUG("SSHAH: pfname=%s", pfname);
-    VIR_DEBUG("SSHAH: parent=%s", parent);
     
     if (rc) {
         if (ifaceSysfsDeviceFile(&pf_sysfs_device_link, pfname, "local_addrs"))

@@ -3195,6 +3195,8 @@ networkNotifyActualDevice(virDomainNetDefPtr iface)
         }
 
         if (netdef->forwardType == VIR_NETWORK_FORWARD_PCI_PASSTHROUGH_HYBRID) {
+            unsigned int num_virt_fns = 0;
+            
              vf_pci_addr = virDomainNetGetActualVfPCIAddr(iface);
 
              if (!vf_pci_addr) {
@@ -3203,9 +3205,61 @@ networkNotifyActualDevice(virDomainNetDefPtr iface)
                  goto cleanup;
              }
              else {
-                 int jj;
+                 int jj, rc;
                  virNetworkForwardVfDefPtr vf = NULL;
+                 char **vfname = NULL;
+                 char *parent = NULL;
 
+                 if ((netdef->nForwardPfs > 0) && (netdef->nForwardVfs <= 0)) {
+                     rc = ifaceGetVlanDevice(netdef->forwardPfs[0].dev, &parent);
+                     
+                     if (rc) {
+                         if ((ifaceGetVirtualFunctionsPCIAddr(netdef->forwardPfs[0].dev, 
+                                                              &vfname, &num_virt_fns)) < 0){
+                             networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                                _("Could not get Virtual functions PCI addr on %s"),
+                                                netdef->forwardPfs->dev);
+                             goto here;
+                         }
+                     }
+                     else {
+                         if ((ifaceGetVirtualFunctionsPCIAddr(parent, 
+                                                              &vfname, &num_virt_fns)) < 0){
+                             networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                                _("Could not get Virtual functions PCI addr on %s"),
+                                                netdef->forwardPfs->dev);
+                             goto here;
+                         }
+                     }
+                     
+                     if (num_virt_fns == 0) {
+                         networkReportError(VIR_ERR_INTERNAL_ERROR,
+                                            _("No Vf's present on SRIOV PF %s"),
+                                            netdef->forwardPfs->dev);
+                         goto here;
+                     }
+                     
+                     if ((VIR_ALLOC_N(netdef->forwardVfs, num_virt_fns)) < 0) {
+                         virReportOOMError();
+                         goto here;
+                     }
+                     
+                     netdef->nForwardVfs = num_virt_fns;
+                     
+                     for (ii = 0; ii < netdef->nForwardVfs; ii++) {
+                         netdef->forwardVfs[ii].pci_device_addr = strdup(vfname[ii]);
+                         netdef->forwardVfs[ii].usageCount = 0;
+                         if (netdef->forwardPfs[0].vlan)
+                             netdef->forwardVfs[ii].vlan = strdup(netdef->forwardPfs[0].vlan);
+                     }
+                     
+                 here:
+                     for (ii = 0; ii < num_virt_fns; ii++) {
+                         VIR_FREE(vfname[ii]);
+                     }
+                     VIR_FREE(vfname);
+                 }
+                 
                  for (jj = 0; jj < netdef->nForwardVfs; jj++) {
                      if (STREQ(vf_pci_addr, netdef->forwardVfs[jj].pci_device_addr)) {
                          vf = &netdef->forwardVfs[jj];

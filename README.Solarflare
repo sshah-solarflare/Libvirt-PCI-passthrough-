@@ -1,0 +1,6 @@
+This is a README for the libvirt patches added to RHEL6.1 and RHEL6.2 by Solarflare in order to support the hybrid model with pci-passthrough and SRIOV.
+
+The detailed architecture of the hybrid model is explained in our Release notes which are available to Download from:
+  https://support.solarflare.com/index.php?view=categories&id=1955&option=com_cognidox&Itemid=2
+
+The Release Notes also contain the instructions to set up a KVM guest with pci-passthrough and acceleration enabled.
